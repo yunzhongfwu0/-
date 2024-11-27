@@ -4,6 +4,7 @@ import com.nations.core.managers.ConfigManager;
 import com.nations.core.managers.DatabaseManager;
 import com.nations.core.managers.NationManager;
 import com.nations.core.commands.NationCommand;
+import com.nations.core.commands.NationAdminCommand;
 import lombok.Getter;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -54,6 +55,7 @@ public class NationsCore extends JavaPlugin {
 
     private void registerCommands() {
         getCommand("nation").setExecutor(new NationCommand(this));
+        getCommand("nadmin").setExecutor(new NationAdminCommand(this));
     }
 
     private void registerListeners() {

@@ -6,6 +6,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import org.bukkit.configuration.ConfigurationSection;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 
@@ -14,20 +15,22 @@ public class DatabaseManager {
     private final NationsCore plugin;
     private HikariDataSource dataSource;
     private final String tablePrefix;
+    private final String serverId;
     
     public DatabaseManager(NationsCore plugin) {
         this.plugin = plugin;
         ConfigurationSection dbConfig = plugin.getConfigManager().getDatabase();
         this.tablePrefix = dbConfig.getString("table-prefix", "");
+        this.serverId = "server_" + plugin.getServer().getPort();
     }
     
     public boolean connect() {
         try {
             plugin.getLogger().info("正在连接到数据库...");
-            createDatabase();
             setupDataSource();
+            testConnection();
             createTables();
-            plugin.getLogger().info("数据库连接成功！");
+            plugin.getLogger().info("数据库连接成功！服务器ID: " + serverId);
             return true;
         } catch (SQLException e) {
             plugin.getLogger().severe("数据库连接失败！错误信息：" + e.getMessage());
@@ -36,37 +39,11 @@ public class DatabaseManager {
         }
     }
     
-    private void createDatabase() throws SQLException {
-        ConfigurationSection dbConfig = plugin.getConfigManager().getDatabase();
-        String dbName = dbConfig.getString("database");
-        
-        // 首先创建一个不指定数据库的连接
-        HikariConfig config = new HikariConfig();
-        config.setJdbcUrl(String.format("jdbc:mysql://%s:%s?useSSL=false&allowPublicKeyRetrieval=true",
-                dbConfig.getString("host"),
-                dbConfig.getString("port")));
-        config.setUsername(dbConfig.getString("username"));
-        config.setPassword(dbConfig.getString("password"));
-        
-        try (HikariDataSource tempDataSource = new HikariDataSource(config);
-             Connection conn = tempDataSource.getConnection();
-             Statement stmt = conn.createStatement()) {
-            
-            // 创建数据库（如果不存在）
-            stmt.executeUpdate("CREATE DATABASE IF NOT EXISTS " + dbName);
-            plugin.getLogger().info("成功创建/确认数据库: " + dbName);
-            
-        } catch (SQLException e) {
-            plugin.getLogger().severe("创建数据库失败！请检查MySQL用户权限。");
-            throw e;
-        }
-    }
-    
     private void setupDataSource() {
         ConfigurationSection dbConfig = plugin.getConfigManager().getDatabase();
         
         HikariConfig config = new HikariConfig();
-        String jdbcUrl = String.format("jdbc:mysql://%s:%s/%s?useSSL=false&allowPublicKeyRetrieval=true",
+        String jdbcUrl = String.format("jdbc:mysql://%s:%s/%s?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=utf8&useUnicode=true",
                 dbConfig.getString("host"),
                 dbConfig.getString("port"),
                 dbConfig.getString("database"));
@@ -77,35 +54,44 @@ public class DatabaseManager {
         config.setUsername(dbConfig.getString("username"));
         config.setPassword(dbConfig.getString("password"));
         
-        // 设置连接池配置
-        config.setMaximumPoolSize(dbConfig.getInt("pool.maximum-pool-size", 10));
-        config.setMinimumIdle(dbConfig.getInt("pool.minimum-idle", 5));
-        config.setMaxLifetime(dbConfig.getLong("pool.maximum-lifetime", 1800000));
-        config.setConnectionTimeout(dbConfig.getLong("pool.connection-timeout", 5000));
-        config.setIdleTimeout(dbConfig.getLong("pool.idle-timeout", 600000));
+        config.setMaximumPoolSize(3);
+        config.setMinimumIdle(1);
+        config.setConnectionTimeout(5000);
         
-        // 设置其他重要属性
         config.addDataSourceProperty("cachePrepStmts", "true");
-        config.addDataSourceProperty("prepStmtCacheSize", "250");
-        config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
         config.addDataSourceProperty("useServerPrepStmts", "true");
-        config.addDataSourceProperty("useLocalSessionState", "true");
         config.addDataSourceProperty("rewriteBatchedStatements", "true");
-        config.addDataSourceProperty("cacheResultSetMetadata", "true");
-        config.addDataSourceProperty("cacheServerConfiguration", "true");
-        config.addDataSourceProperty("elideSetAutoCommits", "true");
-        config.addDataSourceProperty("maintainTimeStats", "false");
         
         dataSource = new HikariDataSource(config);
     }
     
+    private void testConnection() throws SQLException {
+        try (Connection conn = getConnection()) {
+            if (!conn.isValid(1000)) {
+                throw new SQLException("无法建立有效的数据库连接！");
+            }
+            plugin.getLogger().info("数据库连接测试成功！");
+        }
+    }
+    
     private void createTables() throws SQLException {
         try (Connection conn = getConnection()) {
+            // 创建服务器表
+            conn.createStatement().execute(
+                "CREATE TABLE IF NOT EXISTS " + tablePrefix + "servers (" +
+                "id VARCHAR(64) PRIMARY KEY," +  // 服务器ID
+                "port INT NOT NULL," +           // 服务器端口
+                "last_online TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP" +
+                ") CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+            );
+
+            // 创建国家表，添加server_id字段
             conn.createStatement().execute(
                 "CREATE TABLE IF NOT EXISTS " + tablePrefix + "nations (" +
                 "id BIGINT PRIMARY KEY AUTO_INCREMENT," +
                 "name VARCHAR(32) UNIQUE NOT NULL," +
                 "owner_uuid VARCHAR(36) UNIQUE NOT NULL," +
+                "server_id VARCHAR(64) NOT NULL," +  // 关联服务器ID
                 "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
                 "level INT DEFAULT 1," +
                 "balance DECIMAL(20,2) DEFAULT 0," +
@@ -115,10 +101,22 @@ public class DatabaseManager {
                 "spawn_z DOUBLE," +
                 "spawn_yaw FLOAT," +
                 "spawn_pitch FLOAT," +
-                "description TEXT" +
+                "description TEXT," +
+                "FOREIGN KEY (server_id) REFERENCES " + tablePrefix + "servers(id)" +
                 ") CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
             );
-            plugin.getLogger().info("成功创建/确认数据表: " + tablePrefix + "nations");
+
+            // 注册/更新当前服务器信息
+            PreparedStatement serverStmt = conn.prepareStatement(
+                "INSERT INTO " + tablePrefix + "servers (id, port) VALUES (?, ?) " +
+                "ON DUPLICATE KEY UPDATE port = ?, last_online = CURRENT_TIMESTAMP"
+            );
+            serverStmt.setString(1, serverId);
+            serverStmt.setInt(2, plugin.getServer().getPort());
+            serverStmt.setInt(3, plugin.getServer().getPort());
+            serverStmt.executeUpdate();
+
+            plugin.getLogger().info("成功创建/确认数据表并注册服务器信息: " + serverId);
         }
     }
     
@@ -128,12 +126,17 @@ public class DatabaseManager {
     
     public void disconnect() {
         if (dataSource != null && !dataSource.isClosed()) {
+            plugin.getLogger().info("正在关闭数据库连接池...");
             dataSource.close();
-            plugin.getLogger().info("数据库连接已关闭。");
+            plugin.getLogger().info("数据库连接池已关闭。服务器ID: " + serverId);
         }
     }
     
     public String getTablePrefix() {
         return tablePrefix;
+    }
+    
+    public String getServerId() {
+        return serverId;
     }
 } 

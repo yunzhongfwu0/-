@@ -1,4 +1,5 @@
 com\nations\core\managers\ConfigManager.class
+com\nations\core\commands\NationAdminCommand.class
 com\nations\core\commands\NationCommand.class
 com\nations\core\managers\DatabaseManager.class
 com\nations\core\NationsCore.class

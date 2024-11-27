@@ -3,7 +3,7 @@ host: localhost
 port: 3306
 database: nations
 username: root
-password: password
+password: root
 
 # 连接池配置
 pool:

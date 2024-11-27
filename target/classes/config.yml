@@ -5,20 +5,22 @@ database:
   host: localhost
   port: 3306
   database: nations
-  username: nations
-  password: your_password
+  username: root
+  password: root
   table-prefix: nc_
   pool:
-    maximum-pool-size: 10
-    minimum-idle: 5
-    maximum-lifetime: 1800000
+    # 每个子服只需要少量连接
+    maximum-pool-size: 2
+    minimum-idle: 1
     connection-timeout: 5000
-    idle-timeout: 600000
+    idle-timeout: 300000
 
 # 国家系统设置
 nations:
   # 创建国家的费用
   creation-cost: 10000.0
+  # 重命名国家的费用
+  rename-cost: 5000.0
   # 国家名称最小长度
   min-name-length: 2
   # 国家名称最大长度
