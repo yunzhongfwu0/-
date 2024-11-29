@@ -1,24 +1,12 @@
 name: NationsCore
-version: '1.0.0'
+version: '1.0-SNAPSHOT'
 main: com.nations.core.NationsCore
 api-version: '1.20'
-description: 一个完整的 Minecraft 国家系统插件
-author: YourName
-depend: []
-softdepend: [PlaceholderAPI, Vault]
+depend: [Vault]
 commands:
   nation:
     description: 国家系统主命令
     usage: /nation help
-    aliases: [n]
   nadmin:
-    description: 国家系统管理员命令
+    description: 国家系统管理命令
     usage: /nadmin help
-    aliases: [na]
-permissions:
-  nations.admin:
-    description: 管理员权限
-    default: op
-  nations.user:
-    description: 玩家基础权限
-    default: true 

@@ -1,9 +1,10 @@
 package com.nations.core.commands;
 
 import com.nations.core.NationsCore;
+import com.nations.core.gui.AdminGUI;
+import com.nations.core.gui.CostSettingsGUI;
 import com.nations.core.models.Nation;
 import org.bukkit.Bukkit;
-import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -13,7 +14,6 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Optional;
 
 public class NationAdminCommand implements CommandExecutor {
-    
     private final NationsCore plugin;
     
     public NationAdminCommand(NationsCore plugin) {
@@ -22,27 +22,162 @@ public class NationAdminCommand implements CommandExecutor {
     
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, String[] args) {
-        if (!sender.hasPermission("nations.admin")) {
-            sender.sendMessage("§c你没有权限使用此命令！");
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("§c该命令只能由玩家执行！");
+            return true;
+        }
+        
+        if (!player.hasPermission("nations.admin")) {
+            player.sendMessage("§c你没有权限执行此命令！");
             return true;
         }
         
         if (args.length == 0) {
-            showAdminHelp(sender);
+            new AdminGUI(plugin, player).open();
             return true;
         }
         
         switch (args[0].toLowerCase()) {
-            case "reload" -> handleReload(sender);
-            case "setmoney" -> handleSetMoney(sender, args);
-            case "addmoney" -> handleAddMoney(sender, args);
-            case "takemoney" -> handleTakeMoney(sender, args);
-            case "delete" -> handleForceDelete(sender, args);
-            case "transfer" -> handleForceTransfer(sender, args);
-            case "info" -> handleDetailedInfo(sender, args);
-            case "help" -> showAdminHelp(sender);
+            case "gui" -> new AdminGUI(plugin, player).open();
+            case "reload" -> {
+                plugin.reloadConfig();
+                player.sendMessage("§a配置文件已重新加载！");
+            }
+            case "setcreationcost" -> new CostSettingsGUI(plugin, player, true, 0).open();
+            case "setupgradecost" -> {
+                if (args.length < 2) {
+                    player.sendMessage("§c用法: /nadmin setupgradecost <等级>");
+                    return true;
+                }
+                try {
+                    int level = Integer.parseInt(args[1]);
+                    if (level < 2 || level > 4) {
+                        player.sendMessage("§c等级必须在 2-4 之间！");
+                        return true;
+                    }
+                    new CostSettingsGUI(plugin, player, false, level).open();
+                } catch (NumberFormatException e) {
+                    player.sendMessage("§c无效的等级！");
+                }
+            }
+            case "delete" -> {
+                if (args.length < 2) {
+                    player.sendMessage("§c用法: /nadmin delete <玩家名>");
+                    return true;
+                }
+                Player target = Bukkit.getPlayer(args[1]);
+                if (target == null) {
+                    player.sendMessage("§c找不到指定的玩家！");
+                    return true;
+                }
+                Optional<Nation> nation = plugin.getNationManager().getNationByPlayer(target);
+                if (nation.isEmpty()) {
+                    player.sendMessage("§c该玩家没有国家！");
+                    return true;
+                }
+                if (plugin.getNationManager().deleteNation(nation.get())) {
+                    player.sendMessage("§a成功删除玩家 " + target.getName() + " 的国家！");
+                } else {
+                    player.sendMessage("§c删除国家失败！");
+                }
+            }
+            case "transfer" -> {
+                if (args.length < 3) {
+                    player.sendMessage("§c用法: /nadmin transfer <当前玩家名> <新玩家名>");
+                    return true;
+                }
+                Player from = Bukkit.getPlayer(args[1]);
+                Player to = Bukkit.getPlayer(args[2]);
+                if (from == null || to == null) {
+                    player.sendMessage("§c找不到指定的玩家！");
+                    return true;
+                }
+                Optional<Nation> nation = plugin.getNationManager().getNationByPlayer(from);
+                if (nation.isEmpty()) {
+                    player.sendMessage("§c该玩家没有国家！");
+                    return true;
+                }
+                if (plugin.getNationManager().transferNation(nation.get(), to)) {
+                    player.sendMessage("§a成功将国家转让给 " + to.getName() + "！");
+                } else {
+                    player.sendMessage("§c转让国家失败！");
+                }
+            }
+            case "setmoney" -> {
+                if (args.length < 3) {
+                    player.sendMessage("§c用法: /nadmin setmoney <玩家名> <金额>");
+                    return true;
+                }
+                Player target = Bukkit.getPlayer(args[1]);
+                if (target == null) {
+                    player.sendMessage("§c找不到指定的玩家！");
+                    return true;
+                }
+                Optional<Nation> nation = plugin.getNationManager().getNationByPlayer(target);
+                if (nation.isEmpty()) {
+                    player.sendMessage("§c该玩家没有国家！");
+                    return true;
+                }
+                try {
+                    double amount = Double.parseDouble(args[2]);
+                    if (amount < 0) {
+                        player.sendMessage("§c金额不能为负数！");
+                        return true;
+                    }
+                    if (plugin.getNationManager().setBalance(nation.get(), amount)) {
+                        player.sendMessage("§a成功设置国家余额为: " + amount);
+                    } else {
+                        player.sendMessage("§c设置余额失败！");
+                    }
+                } catch (NumberFormatException e) {
+                    player.sendMessage("§c无效的金额！");
+                }
+            }
+            case "forcejoin" -> {
+                if (args.length < 3) {
+                    player.sendMessage("§c用法: /nadmin forcejoin <玩家名> <国家名>");
+                    return true;
+                }
+                Player target = Bukkit.getPlayer(args[1]);
+                if (target == null) {
+                    player.sendMessage("§c找不到指定的玩家！");
+                    return true;
+                }
+                Optional<Nation> nation = plugin.getNationManager().getNationByName(args[2]);
+                if (nation.isEmpty()) {
+                    player.sendMessage("§c找不到指定的国家！");
+                    return true;
+                }
+                if (plugin.getNationManager().addMember(nation.get(), target.getUniqueId(), "MEMBER")) {
+                    player.sendMessage("§a成功将 " + target.getName() + " 添加到国家！");
+                } else {
+                    player.sendMessage("§c添加成员失败！");
+                }
+            }
+            case "forcekick" -> {
+                if (args.length < 2) {
+                    player.sendMessage("§c用法: /nadmin forcekick <玩家名>");
+                    return true;
+                }
+                Player target = Bukkit.getPlayer(args[1]);
+                if (target == null) {
+                    player.sendMessage("§c找不到指定的玩家！");
+                    return true;
+                }
+                Optional<Nation> nation = plugin.getNationManager().getNationByPlayer(target);
+                if (nation.isEmpty()) {
+                    player.sendMessage("§c该玩家没有国家！");
+                    return true;
+                }
+                if (plugin.getNationManager().removeMember(nation.get(), target.getUniqueId())) {
+                    player.sendMessage("§a成功将 " + target.getName() + " 踢出国家！");
+                } else {
+                    player.sendMessage("§c踢出成员失败！");
+                }
+            }
+            case "help" -> showHelp(player);
             default -> {
-                sender.sendMessage("§c未知命令！使用 /nadmin help 查看帮助");
+                player.sendMessage("§c未知命令！使用 /nadmin help 查看帮助");
                 return false;
             }
         }
@@ -50,218 +185,18 @@ public class NationAdminCommand implements CommandExecutor {
         return true;
     }
     
-    private void handleReload(CommandSender sender) {
-        plugin.getConfigManager().loadConfigs();
-        sender.sendMessage("§a配置文件已重新加载！");
-    }
-    
-    private void handleSetMoney(CommandSender sender, String[] args) {
-        if (args.length < 3) {
-            sender.sendMessage("§c用法: /nadmin setmoney <玩家名> <金额>");
-            return;
-        }
-        
-        Player target = Bukkit.getPlayer(args[1]);
-        if (target == null) {
-            sender.sendMessage("§c找不到指定的玩家！");
-            return;
-        }
-        
-        Optional<Nation> nation = plugin.getNationManager().getNationByPlayer(target);
-        if (nation.isEmpty()) {
-            sender.sendMessage("§c该玩家没有国家！");
-            return;
-        }
-        
-        try {
-            double amount = Double.parseDouble(args[2]);
-            if (amount < 0) {
-                sender.sendMessage("§c金额不能为负数！");
-                return;
-            }
-            
-            if (plugin.getNationManager().setBalance(nation.get(), amount)) {
-                sender.sendMessage("§a已将玩家 " + target.getName() + " 的国家余额设置为 " + amount);
-                target.sendMessage("§a你的国家余额已被管理员设置为 " + amount);
-            } else {
-                sender.sendMessage("§c设置余额失败！");
-            }
-        } catch (NumberFormatException e) {
-            sender.sendMessage("§c无效的金额！");
-        }
-    }
-    
-    private void handleAddMoney(CommandSender sender, String[] args) {
-        if (args.length < 3) {
-            sender.sendMessage("§c用法: /nadmin addmoney <玩家名> <金额>");
-            return;
-        }
-        
-        Player target = Bukkit.getPlayer(args[1]);
-        if (target == null) {
-            sender.sendMessage("§c找不到指定的玩家！");
-            return;
-        }
-        
-        Optional<Nation> nation = plugin.getNationManager().getNationByPlayer(target);
-        if (nation.isEmpty()) {
-            sender.sendMessage("§c该玩家没有国家！");
-            return;
-        }
-        
-        try {
-            double amount = Double.parseDouble(args[2]);
-            if (amount <= 0) {
-                sender.sendMessage("§c金额必须大于0！");
-                return;
-            }
-            
-            if (plugin.getNationManager().addBalance(nation.get(), amount)) {
-                sender.sendMessage("§a已向玩家 " + target.getName() + " 的国家余额添加 " + amount + " 金额");
-                target.sendMessage("§a你的国家余额已被管理员添加 " + amount + " 金额");
-            } else {
-                sender.sendMessage("§c添加金额失败！");
-            }
-        } catch (NumberFormatException e) {
-            sender.sendMessage("§c无效的金额！");
-        }
-    }
-    
-    private void handleTakeMoney(CommandSender sender, String[] args) {
-        if (args.length < 3) {
-            sender.sendMessage("§c用法: /nadmin takemoney <玩家名> <金额>");
-            return;
-        }
-        
-        Player target = Bukkit.getPlayer(args[1]);
-        if (target == null) {
-            sender.sendMessage("§c找不到指定的玩家！");
-            return;
-        }
-        
-        Optional<Nation> nation = plugin.getNationManager().getNationByPlayer(target);
-        if (nation.isEmpty()) {
-            sender.sendMessage("§c该玩家没有国家！");
-            return;
-        }
-        
-        try {
-            double amount = Double.parseDouble(args[2]);
-            if (amount <= 0) {
-                sender.sendMessage("§c金额必须大于0！");
-                return;
-            }
-            
-            if (plugin.getNationManager().takeBalance(nation.get(), amount)) {
-                sender.sendMessage("§a已从玩家 " + target.getName() + " 的国家余额扣除 " + amount + " 金额");
-                target.sendMessage("§a你的国家余额已被管理员扣除 " + amount + " 金额");
-            } else {
-                sender.sendMessage("§c扣除金额失败！余额不足或发生错误。");
-            }
-        } catch (NumberFormatException e) {
-            sender.sendMessage("§c无效的金额！");
-        }
-    }
-    
-    private void handleForceDelete(CommandSender sender, String[] args) {
-        if (args.length < 2) {
-            sender.sendMessage("§c用法: /nadmin delete <玩家名>");
-            return;
-        }
-        
-        Player target = Bukkit.getPlayer(args[1]);
-        if (target == null) {
-            sender.sendMessage("§c找不到指定的玩家！");
-            return;
-        }
-        
-        Optional<Nation> nation = plugin.getNationManager().getNationByPlayer(target);
-        if (nation.isEmpty()) {
-            sender.sendMessage("§c该玩家没有国家！");
-            return;
-        }
-        
-        if (plugin.getNationManager().deleteNation(nation.get())) {
-            sender.sendMessage("§a已强制删除玩家 " + target.getName() + " 的国家");
-        } else {
-            sender.sendMessage("§c删除国家失败！");
-        }
-    }
-    
-    private void handleForceTransfer(CommandSender sender, String[] args) {
-        if (args.length < 3) {
-            sender.sendMessage("§c用法: /nadmin transfer <当前玩家名> <新玩家名>");
-            return;
-        }
-        
-        Player currentPlayer = Bukkit.getPlayer(args[1]);
-        if (currentPlayer == null) {
-            sender.sendMessage("§c找不到指定的玩家！");
-            return;
-        }
-        
-        Player newPlayer = Bukkit.getPlayer(args[2]);
-        if (newPlayer == null) {
-            sender.sendMessage("§c找不到指定的玩家！");
-            return;
-        }
-        
-        Optional<Nation> nation = plugin.getNationManager().getNationByPlayer(currentPlayer);
-        if (nation.isEmpty()) {
-            sender.sendMessage("§c该玩家没有国家！");
-            return;
-        }
-        
-        if (plugin.getNationManager().transferOwnership(nation.get(), newPlayer)) {
-            sender.sendMessage("§a已将玩家 " + currentPlayer.getName() + " 的国家转让给 " + newPlayer.getName());
-        } else {
-            sender.sendMessage("§c转让国家失败！");
-        }
-    }
-    
-    private void handleDetailedInfo(CommandSender sender, String[] args) {
-        if (args.length < 2) {
-            sender.sendMessage("§c用法: /nadmin info <玩家名>");
-            return;
-        }
-        
-        Player target = Bukkit.getPlayer(args[1]);
-        if (target == null) {
-            sender.sendMessage("§c找不到指定的玩家！");
-            return;
-        }
-        
-        Optional<Nation> nation = plugin.getNationManager().getNationByPlayer(target);
-        if (nation.isEmpty()) {
-            sender.sendMessage("§c该玩家没有国家！");
-            return;
-        }
-        
-        Nation n = nation.get();
-        sender.sendMessage("§6========== 国家详细信息 ==========");
-        sender.sendMessage("§e国家ID: §f" + n.getId());
-        sender.sendMessage("§e国家名称: §f" + n.getName());
-        sender.sendMessage("§e创建者UUID: §f" + n.getOwnerUUID());
-        sender.sendMessage("§e创建者名称: §f" + Bukkit.getOfflinePlayer(n.getOwnerUUID()).getName());
-        sender.sendMessage("§e国等级: §f" + n.getLevel());
-        sender.sendMessage("§e国库余额: §f" + n.getBalance());
-        if (n.getSpawnPoint() != null) {
-            Location spawn = n.getSpawnPoint();
-            sender.sendMessage("§e传送点: §f" + String.format("%.2f, %.2f, %.2f (%s)", 
-                spawn.getX(), spawn.getY(), spawn.getZ(), spawn.getWorld().getName()));
-        }
-        sender.sendMessage("§6================================");
-    }
-    
-    private void showAdminHelp(CommandSender sender) {
-        sender.sendMessage("§6========== 国家管理系统帮助 ==========");
-        sender.sendMessage("§e/nadmin reload §f- 重新加载配置文件");
-        sender.sendMessage("§e/nadmin setmoney <玩家名> <金额> §f- 设置玩家国家余额");
-        sender.sendMessage("§e/nadmin addmoney <玩家名> <金额> §f- 增加玩家国家余额");
-        sender.sendMessage("§e/nadmin takemoney <玩家名> <金额> §f- 扣除玩家国家余额");
-        sender.sendMessage("§e/nadmin delete <玩家名> §f- 强制删除玩家的国家");
-        sender.sendMessage("§e/nadmin transfer <当前玩家名> <新玩家名> §f- 强制转让国家");
-        sender.sendMessage("§e/nadmin info <玩家名> §f- 查看玩家的国家详细信息");
-        sender.sendMessage("§6===================================");
+    private void showHelp(Player player) {
+        player.sendMessage("§6========== 国家管理命令 ==========");
+        player.sendMessage("§e/nadmin §f- 打开管理面板");
+        player.sendMessage("§e/nadmin gui §f- 打开管理面板");
+        player.sendMessage("§e/nadmin reload §f- 重新加载配置");
+        player.sendMessage("§e/nadmin setcreationcost §f- 设置创建国家费用");
+        player.sendMessage("§e/nadmin setupgradecost <等级> §f- 设置升级费用");
+        player.sendMessage("§e/nadmin delete <玩家名> §f- 删除玩家的国家");
+        player.sendMessage("§e/nadmin transfer <当前玩家名> <新玩家名> §f- 转让国家");
+        player.sendMessage("§e/nadmin setmoney <玩家名> <金额> §f- 设置国家余额");
+        player.sendMessage("§e/nadmin forcejoin <玩家名> <国家名> §f- 强制玩家加入国家");
+        player.sendMessage("§e/nadmin forcekick <玩家名> §f- 强制踢出玩家");
+        player.sendMessage("§6================================");
     }
 } 

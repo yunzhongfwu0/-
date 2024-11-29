@@ -10,120 +10,69 @@ database:
   table-prefix: nc_
   pool:
     # 每个子服只需要少量连接
-    maximum-pool-size: 2
-    minimum-idle: 1
+    maximum-pool-size: 5
+    minimum-idle: 2
     connection-timeout: 5000
     idle-timeout: 300000
 
 # 国家系统设置
 nations:
   # 创建国家的费用
-  creation-cost: 10000.0
-  # 重命名国家的费用
-  rename-cost: 5000.0
-  # 国家名称最小长度
+  creation:
+    money: 10000.0  # 金钱消耗
+    items:  # 物品消耗
+      DIAMOND: 10  # 钻石 10个
+      EMERALD: 5   # 绿宝石 5个
+      NETHERITE_INGOT: 1  # 下界合金锭 1个
+  
+  # 国家名称设置
   min-name-length: 2
-  # 国家名称最大长度
   max-name-length: 16
-  # 国家名称正则表达式 (允许中文、字母、数字和下划线)
   name-regex: "^[\u4e00-\u9fa5a-zA-Z0-9_]+$"
-  # 每个玩家只能创建一个国家
-  one-nation-per-player: true
-  # 默认国家等级设置
+  
+  # 国家等级设置
   levels:
     1:
       name: "新兴国家"
       max-members: 10
-      max-chunks: 50
-      cost: 0
+      max-territory: 30  # 30x30
+      upgrade-cost:
+        money: 0  # 初始等级无需费用
+        items: {}
     2:
       name: "发展中国家"
       max-members: 20
-      max-chunks: 100
-      cost: 50000
+      max-territory: 50  # 50x50
+      upgrade-cost:
+        money: 50000
+        items:
+          DIAMOND: 20
+          EMERALD: 10
+          NETHERITE_INGOT: 2
     3:
       name: "地区强国"
       max-members: 30
-      max-chunks: 200
-      cost: 100000
+      max-territory: 70  # 70x70
+      upgrade-cost:
+        money: 100000
+        items:
+          DIAMOND: 40
+          EMERALD: 20
+          NETHERITE_INGOT: 4
     4:
       name: "世界强国"
       max-members: 50
-      max-chunks: 500
-      cost: 200000
+      max-territory: 100  # 100x100
+      upgrade-cost:
+        money: 200000
+        items:
+          DIAMOND: 80
+          EMERALD: 40
+          NETHERITE_INGOT: 8
 
-# 领地系统设置
-chunks:
-  # 声明领地的费用（每个区块）
-  claim-cost: 100.0
-  # 每个区块的维护费用（每天）
-  maintenance-cost: 10.0
-  # 是否允许非国家成员进入领地
-  allow-entry: false
-  # 是否允许非国家成员在领地内建造
-  allow-build: false
-  # 是否允许非国家成员在领地内使用容器
-  allow-containers: false
-  # 是否允许非国家成员在领地内PVP
-  allow-pvp: false
-
-# 经济系统设置
-economy:
-  # 是否启用税收系统
-  enable-tax: true
-  # 默认税率（百分比）
-  default-tax-rate: 5.0
-  # 最大税率
-  max-tax-rate: 20.0
-  # 税收结算周期（小时）
-  tax-collection-interval: 24
-  # 国库利息（每天百分比）
-  daily-interest-rate: 0.5
-
-# 外交系统设置
-diplomacy:
-  # 同盟最大数量
-  max-allies: 3
-  # 同盟建立费用
-  alliance-cost: 5000.0
-  # 战争声明费用
-  war-declaration-cost: 10000.0
-  # 战争最短持续时间（小时）
-  minimum-war-duration: 24
-  # 和平条约费用
-  peace-treaty-cost: 5000.0
-
-# 权限系统设置
-ranks:
-  leader:
-    name: "国家领袖"
-    permissions:
-      - nation.admin
-      - nation.manage.ranks
-      - nation.manage.claims
-      - nation.manage.relations
-      - nation.manage.economy
-  officer:
-    name: "国家官员"
-    permissions:
-      - nation.manage.claims
-      - nation.invite
-      - nation.kick
-  member:
-    name: "普通成员"
-    permissions:
-      - nation.build
-      - nation.interact
-
-# 消息设置
-messages:
-  prefix: "&6[Nations] &r"
-  colors:
-    primary: "&6"
-    secondary: "&e"
-    error: "&c"
-    success: "&a"
-    info: "&b"
-
-# 调试模式
-debug: false 
+# GUI设置
+gui:
+  # 边框颜色
+  border-color: GRAY_STAINED_GLASS_PANE
+  # 是否显示物品提示
+  show-tooltips: true 

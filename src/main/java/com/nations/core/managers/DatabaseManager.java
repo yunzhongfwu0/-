@@ -85,13 +85,13 @@ public class DatabaseManager {
                 ") CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
             );
 
-            // 创建国家表，添加server_id字段
+            // 创建国家表
             conn.createStatement().execute(
                 "CREATE TABLE IF NOT EXISTS " + tablePrefix + "nations (" +
                 "id BIGINT PRIMARY KEY AUTO_INCREMENT," +
                 "name VARCHAR(32) UNIQUE NOT NULL," +
-                "owner_uuid VARCHAR(36) UNIQUE NOT NULL," +
-                "server_id VARCHAR(64) NOT NULL," +  // 关联服务器ID
+                "owner_uuid VARCHAR(36) NOT NULL," +  // 移除UNIQUE约束
+                "server_id VARCHAR(64) NOT NULL," +
                 "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
                 "level INT DEFAULT 1," +
                 "balance DECIMAL(20,2) DEFAULT 0," +
@@ -106,6 +106,18 @@ public class DatabaseManager {
                 ") CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
             );
 
+            // 创建成员表
+            conn.createStatement().execute(
+                "CREATE TABLE IF NOT EXISTS " + tablePrefix + "nation_members (" +
+                "nation_id BIGINT," +
+                "player_uuid VARCHAR(36)," +
+                "rank VARCHAR(32) NOT NULL DEFAULT 'member'," +  // 成员等级
+                "joined_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP," +
+                "PRIMARY KEY (nation_id, player_uuid)," +
+                "FOREIGN KEY (nation_id) REFERENCES " + tablePrefix + "nations(id) ON DELETE CASCADE" +
+                ") CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+            );
+
             // 注册/更新当前服务器信息
             PreparedStatement serverStmt = conn.prepareStatement(
                 "INSERT INTO " + tablePrefix + "servers (id, port) VALUES (?, ?) " +
@@ -117,6 +129,33 @@ public class DatabaseManager {
             serverStmt.executeUpdate();
 
             plugin.getLogger().info("成功创建/确认数据表并注册服务器信息: " + serverId);
+
+            // 创建领土表
+            conn.createStatement().execute(
+                "CREATE TABLE IF NOT EXISTS " + tablePrefix + "territories (" +
+                "id BIGINT PRIMARY KEY AUTO_INCREMENT," +
+                "nation_id BIGINT NOT NULL," +
+                "world_name VARCHAR(64) NOT NULL," +
+                "center_x INT NOT NULL," +
+                "center_z INT NOT NULL," +
+                "radius INT NOT NULL," +
+                "FOREIGN KEY (nation_id) REFERENCES " + tablePrefix + "nations(id) ON DELETE CASCADE" +
+                ") CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+            );
+
+            // 创建交易记录表
+            conn.createStatement().execute(
+                "CREATE TABLE IF NOT EXISTS " + tablePrefix + "transactions (" +
+                "id BIGINT PRIMARY KEY AUTO_INCREMENT," +
+                "nation_id BIGINT NOT NULL," +
+                "player_uuid VARCHAR(36) NOT NULL," +
+                "type VARCHAR(32) NOT NULL," +
+                "amount DECIMAL(20,2) NOT NULL," +
+                "description TEXT," +
+                "timestamp BIGINT NOT NULL," +
+                "FOREIGN KEY (nation_id) REFERENCES " + tablePrefix + "nations(id) ON DELETE CASCADE" +
+                ") CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+            );
         }
     }
     
