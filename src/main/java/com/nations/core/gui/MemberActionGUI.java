@@ -2,6 +2,8 @@ package com.nations.core.gui;
 
 import com.nations.core.NationsCore;
 import com.nations.core.models.Nation;
+import com.nations.core.utils.MessageUtil;
+
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 
@@ -27,7 +29,7 @@ public class MemberActionGUI extends BaseGUI {
             "§7点击踢出该成员"
         ), p -> {
             if (plugin.getNationManager().removeMember(nation, targetUUID)) {
-                p.sendMessage("§a成功踢出成员！");
+                p.sendMessage(MessageUtil.success("成功踢出成员！"));
                 new MemberManageGUI(plugin, p, nation).open();
             }
         });

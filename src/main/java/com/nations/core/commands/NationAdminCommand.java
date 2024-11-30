@@ -4,6 +4,10 @@ import com.nations.core.NationsCore;
 import com.nations.core.gui.AdminGUI;
 import com.nations.core.gui.CostSettingsGUI;
 import com.nations.core.models.Nation;
+import com.nations.core.utils.MessageUtil;
+
+import net.kyori.adventure.text.Component;
+
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -60,27 +64,7 @@ public class NationAdminCommand implements CommandExecutor {
                     player.sendMessage("§c无效的等级！");
                 }
             }
-            case "delete" -> {
-                if (args.length < 2) {
-                    player.sendMessage("§c用法: /nadmin delete <玩家名>");
-                    return true;
-                }
-                Player target = Bukkit.getPlayer(args[1]);
-                if (target == null) {
-                    player.sendMessage("§c找不到指定的玩家！");
-                    return true;
-                }
-                Optional<Nation> nation = plugin.getNationManager().getNationByPlayer(target);
-                if (nation.isEmpty()) {
-                    player.sendMessage("§c该玩家没有国家！");
-                    return true;
-                }
-                if (plugin.getNationManager().deleteNation(nation.get())) {
-                    player.sendMessage("§a成功删除玩家 " + target.getName() + " 的国家！");
-                } else {
-                    player.sendMessage("§c删除国家失败！");
-                }
-            }
+            case "delete" -> handleDelete(sender, args);
             case "transfer" -> {
                 if (args.length < 3) {
                     player.sendMessage("§c用法: /nadmin transfer <当前玩家名> <新玩家名>");
@@ -198,5 +182,27 @@ public class NationAdminCommand implements CommandExecutor {
         player.sendMessage("§e/nadmin forcejoin <玩家名> <国家名> §f- 强制玩家加入国家");
         player.sendMessage("§e/nadmin forcekick <玩家名> §f- 强制踢出玩家");
         player.sendMessage("§6================================");
+    }
+    
+    private void handleDelete(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage(MessageUtil.error("用法: /nationadmin delete <国家名称>"));
+            return;
+        }
+        
+        Optional<Nation> nation = plugin.getNationManager().getNationByName(args[1]);
+        if (nation.isEmpty()) {
+            sender.sendMessage(MessageUtil.error("找不到指定的国家！"));
+            return;
+        }
+        
+        if (plugin.getNationManager().deleteNation(nation.get())) {
+            sender.sendMessage(MessageUtil.success("成功删除国家 " + nation.get().getName()));
+            plugin.getServer().broadcast(
+                Component.text(MessageUtil.broadcast("管理员删除了国家 " + nation.get().getName()))
+            );
+        } else {
+            sender.sendMessage(MessageUtil.error("删除国家失败！"));
+        }
     }
 } 

@@ -8,7 +8,6 @@ com\nations\core\gui\MemberListGUI.class
 com\nations\core\utils\TaskManager$1.class
 com\nations\core\gui\SystemSettingsGUI.class
 com\nations\core\utils\ParticleEffects$3.class
-com\nations\core\gui\DeleteConfirmGUI.class
 com\nations\core\gui\MemberManageGUI.class
 com\nations\core\commands\NationAdminCommand.class
 com\nations\core\models\Territory$1.class
@@ -40,6 +39,7 @@ com\nations\core\utils\ChatInputManager$2.class
 com\nations\core\utils\MessageUtil.class
 com\nations\core\utils\PerformanceMonitor.class
 com\nations\core\utils\ChatInputManager$1.class
+com\nations\core\hooks\NationsPlaceholder.class
 com\nations\core\managers\NationManager.class
 com\nations\core\gui\AdminGUI.class
 com\nations\core\gui\HelpGUI.class
@@ -49,6 +49,7 @@ com\nations\core\utils\ChatInputManager.class
 com\nations\core\utils\GuiEffects$2.class
 com\nations\core\utils\GuiEffects.class
 com\nations\core\utils\ItemNameUtil.class
+com\nations\core\gui\ConfirmGUI.class
 com\nations\core\gui\NationManageGUI.class
 com\nations\core\gui\MaterialSelectorGUI.class
 com\nations\core\gui\UpgradeCostSelectGUI.class

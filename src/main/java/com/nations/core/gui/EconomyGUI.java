@@ -3,6 +3,7 @@ package com.nations.core.gui;
 import com.nations.core.NationsCore;
 import com.nations.core.models.Nation;
 import com.nations.core.utils.ChatInputManager;
+import com.nations.core.utils.MessageUtil;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 
@@ -31,7 +32,7 @@ public class EconomyGUI extends BaseGUI {
             "§7你的余额: §f" + plugin.getVaultEconomy().getBalance(player)
         ), p -> {
             p.closeInventory();
-            p.sendMessage("§a请在聊天栏输入要存入的金额，或输入 'cancel' 取消");
+            p.sendMessage(MessageUtil.info("请在聊天栏输入要存入的金额，或输入 'cancel' 取消"));
             ChatInputManager.awaitChatInput(p, input -> {
                 if (input.equalsIgnoreCase("cancel")) {
                     p.sendMessage("§c已取消操作。");
@@ -40,17 +41,17 @@ public class EconomyGUI extends BaseGUI {
                 try {
                     double amount = Double.parseDouble(input);
                     if (amount <= 0) {
-                        p.sendMessage("§c金额必须大于0！");
+                        p.sendMessage(MessageUtil.error("金额必须大于0！"));
                         return;
                     }
                     if (plugin.getNationManager().deposit(nation, p, amount)) {
-                        p.sendMessage("§a成功向国库存入 " + amount + " 金币！");
-                        p.sendMessage("§a当前国库余额: " + nation.getBalance());
+                        p.sendMessage(MessageUtil.success("成功向国库存入 " + amount + " 金币！\n"+
+                        "当前国库余额: " + nation.getBalance()));
                     } else {
-                        p.sendMessage("§c存入失败！请确保你有足够的金币。");
+                        p.sendMessage(MessageUtil.error("存入失败！请确保你有足够的金币。"));
                     }
                 } catch (NumberFormatException e) {
-                    p.sendMessage("§c无效的金额！");
+                    p.sendMessage(MessageUtil.error("无效的金额！"));
                 }
             });
         });
@@ -63,26 +64,26 @@ public class EconomyGUI extends BaseGUI {
                 "§7国库余额: §f" + nation.getBalance()
             ), p -> {
                 p.closeInventory();
-                p.sendMessage("§a请在聊天栏输入要取出的金额，或输入 'cancel' 取消");
+                p.sendMessage(MessageUtil.info("请在聊天栏输入要取出的金额，或输入 'cancel' 取消"));
                 ChatInputManager.awaitChatInput(p, input -> {
                     if (input.equalsIgnoreCase("cancel")) {
-                        p.sendMessage("§c已取消操作。");
+                        p.sendMessage(MessageUtil.error("已取消操作。"));
                         return;
                     }
                     try {
                         double amount = Double.parseDouble(input);
                         if (amount <= 0) {
-                            p.sendMessage("§c金额必须大于0！");
+                            p.sendMessage(MessageUtil.error("金额必须大于0！"));
                             return;
                         }
                         if (plugin.getNationManager().withdraw(nation, p, amount)) {
-                            p.sendMessage("§a成功从国库取出 " + amount + " 金币！");
-                            p.sendMessage("§a当前国库余额: " + nation.getBalance());
+                            p.sendMessage(MessageUtil.success("成功从国库取出 " + amount + " 金币！\n"+
+                            "当前国库余额: " + nation.getBalance()));
                         } else {
-                            p.sendMessage("§c取出失败！请确保国库有足够的金币。");
+                            p.sendMessage(MessageUtil.error("取出失败！请确保国库有足够的金币。"));
                         }
                     } catch (NumberFormatException e) {
-                        p.sendMessage("§c无效的金额！");
+                        p.sendMessage(MessageUtil.error("无效的金额！"));
                     }
                 });
             });

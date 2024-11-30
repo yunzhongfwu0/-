@@ -96,9 +96,9 @@ public class MessageUtil {
     }
     
     /**
-     * 创建一个标准的描述列表
+     * 创建一个简单的描述列表
      */
-    public static List<String> createLore(String... lines) {
+    public static List<String> createSimpleLore(String... lines) {
         List<String> lore = new ArrayList<>();
         for (String line : lines) {
             if (line.isEmpty()) {

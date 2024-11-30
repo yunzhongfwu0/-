@@ -4,6 +4,7 @@ import com.nations.core.NationsCore;
 import com.nations.core.commands.NationCommand;
 import com.nations.core.utils.ChatInputManager;
 import com.nations.core.utils.ItemNameUtil;
+import com.nations.core.utils.MessageUtil;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
@@ -32,6 +33,7 @@ public class CreateNationGUI extends BaseGUI {
         
         // 创建说明文本
         List<String> lore = new ArrayList<>();
+        lore.add("§b默认选取以你为中心的 30*30 区域 为国家领土");
         lore.add("§7在聊天栏输入国家名称");
         lore.add("§7输入 'cancel' 取消操作");
         lore.add("");
@@ -66,9 +68,27 @@ public class CreateNationGUI extends BaseGUI {
             
             ChatInputManager.awaitChatInput(p, input -> {
                 if (input.equalsIgnoreCase("cancel")) {
-                    p.sendMessage("§c已取消创建国家。");
+                    p.sendMessage(MessageUtil.info("已取消创建国家。"));
                     return;
                 }
+                
+                // 检查名称长度
+                int minLength = plugin.getConfig().getInt("nations.min-name-length", 2);
+                int maxLength = plugin.getConfig().getInt("nations.max-name-length", 16);
+                if (input.length() < minLength || input.length() > maxLength) {
+                    p.sendMessage(MessageUtil.error("国家名称长度必须在 " + minLength + " 到 " + maxLength + " 个字符之间！"));
+                    new CreateNationGUI(plugin, p).open();
+                    return;
+                }
+                
+                // 检查名称格式
+                String nameRegex = plugin.getConfig().getString("nations.name-regex", "^[\u4e00-\u9fa5a-zA-Z0-9_]+$");
+                if (!input.matches(nameRegex)) {
+                    p.sendMessage(MessageUtil.error("国家名称只能包含中文、字母、数字和下划线！"));
+                    new CreateNationGUI(plugin, p).open();
+                    return;
+                }
+                
                 nationCommand.handleCreate(p, new String[]{"create", input});
             });
         });

@@ -12,16 +12,14 @@ public class GUIListener implements Listener {
     
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        if (event.getInventory().getHolder() instanceof BaseGUI) {
-            BaseGUI gui = (BaseGUI) event.getInventory().getHolder();
-            
+        if (event.getInventory().getHolder() instanceof BaseGUI gui) {
             // 取消事件以防止物品被移动
             event.setCancelled(true);
             
             // 确保点击的是GUI界面而不是玩家背包
             if (event.getClickedInventory() == event.getView().getTopInventory()) {
                 // 根据点击类型调用不同的处理器
-                if (event.getClick() == ClickType.RIGHT) {
+                if (event.getClick() == ClickType.RIGHT || event.getClick() == ClickType.SHIFT_RIGHT) {
                     gui.handleRightClick(event);
                 } else {
                     gui.handleLeftClick(event);
@@ -32,15 +30,15 @@ public class GUIListener implements Listener {
     
     @EventHandler
     public void onInventoryDrag(InventoryDragEvent event) {
-        if (event.getInventory().getHolder() instanceof BaseGUI) {
-            ((BaseGUI) event.getInventory().getHolder()).handleDrag(event);
+        if (event.getInventory().getHolder() instanceof BaseGUI gui) {
+            gui.handleDrag(event);
         }
     }
     
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent event) {
-        if (event.getInventory().getHolder() instanceof BaseGUI) {
-            ((BaseGUI) event.getInventory().getHolder()).handleClose(event);
+        if (event.getInventory().getHolder() instanceof BaseGUI gui) {
+            gui.handleClose(event);
         }
     }
 } 

@@ -44,7 +44,12 @@ public class RequestManageGUI extends BaseGUI {
                 ).toArray(new String[0])
             ), p -> {
                 // 左键处理 - 同意申请
-                if (plugin.getNationManager().getNationByUUID(uuid).isPresent()) {
+                if (!nation.hasPermission(p.getUniqueId(), "nation.manage.requests")) {
+                    p.sendMessage(MessageUtil.error("你没有权限处理申请！"));
+                    return;
+                }
+                
+                if (plugin.getNationManager().getNationByPlayer(plugin.getServer().getPlayer(uuid)).isPresent()) {
                     p.sendMessage(MessageUtil.error("该玩家已加入其他国家！"));
                     plugin.getNationManager().removeJoinRequest(nation, uuid);
                     new RequestManageGUI(plugin, p, nation).open();
@@ -73,6 +78,11 @@ public class RequestManageGUI extends BaseGUI {
                 new RequestManageGUI(plugin, p, nation).open();
             }, p -> {
                 // 右键处理 - 拒绝申请
+                if (!nation.hasPermission(p.getUniqueId(), "nation.manage.requests")) {
+                    p.sendMessage(MessageUtil.error("你没有权限处理申请！"));
+                    return;
+                }
+                
                 plugin.getNationManager().removeJoinRequest(nation, uuid);
                 p.sendMessage(MessageUtil.info("已拒绝 " + playerName + " 的加入申请"));
                 

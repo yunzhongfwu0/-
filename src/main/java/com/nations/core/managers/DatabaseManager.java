@@ -1,12 +1,17 @@
 package com.nations.core.managers;
 
 import com.nations.core.NationsCore;
+import com.nations.core.models.Nation;
+import com.nations.core.models.Territory;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.Location;
+import org.bukkit.World;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
@@ -177,5 +182,149 @@ public class DatabaseManager {
     
     public String getServerId() {
         return serverId;
+    }
+    
+    public void loadNationData(Nation nation) {
+        try (Connection conn = getConnection()) {
+            plugin.getLogger().info("正在加载国家 " + nation.getName() + " 的数据...");
+            
+            // 加载传送点数据
+            PreparedStatement spawnStmt = conn.prepareStatement(
+                "SELECT spawn_world, spawn_x, spawn_y, spawn_z, spawn_yaw, spawn_pitch " +
+                "FROM " + tablePrefix + "nations WHERE id = ?"
+            );
+            spawnStmt.setLong(1, nation.getId());
+            ResultSet spawnRs = spawnStmt.executeQuery();
+            
+            if (spawnRs.next()) {
+                String worldName = spawnRs.getString("spawn_world");
+                if (worldName != null) {
+                    // 先保存世界名称和坐标信息
+                    double x = spawnRs.getDouble("spawn_x");
+                    double y = spawnRs.getDouble("spawn_y");
+                    double z = spawnRs.getDouble("spawn_z");
+                    float yaw = spawnRs.getFloat("spawn_yaw");
+                    float pitch = spawnRs.getFloat("spawn_pitch");
+                    
+                    nation.setSpawnWorldName(worldName);
+                    nation.setSpawnCoordinates(x, y, z, yaw, pitch);
+                    
+                    // 尝试获取世界并创建Location对象
+                    World world = plugin.getServer().getWorld(worldName);
+                    if (world != null) {
+                        Location spawnPoint = new Location(world, x, y, z, yaw, pitch);
+                        nation.setSpawnPoint(spawnPoint);
+                        plugin.getLogger().info("成功加载国家 " + nation.getName() + " 的传送点: " + 
+                            String.format("%.1f, %.1f, %.1f in %s", x, y, z, worldName));
+                    } else {
+                        plugin.getLogger().warning("国家 " + nation.getName() + " 的传送点世界 " + 
+                            worldName + " 未加载，将在世界加载后自动设置 (坐标: " + 
+                            String.format("%.1f, %.1f, %.1f)", x, y, z));
+                    }
+                } else {
+                    plugin.getLogger().info("国家 " + nation.getName() + " 未设置传送点");
+                }
+            }
+            
+            // 加载领地数据
+            PreparedStatement territoryStmt = conn.prepareStatement(
+                "SELECT * FROM " + tablePrefix + "territories WHERE nation_id = ?"
+            );
+            territoryStmt.setLong(1, nation.getId());
+            ResultSet territoryRs = territoryStmt.executeQuery();
+            
+            if (territoryRs.next()) {
+                String worldName = territoryRs.getString("world_name");
+                World world = plugin.getServer().getWorld(worldName);
+                if (world != null) {
+                    Territory territory = new Territory(
+                        territoryRs.getLong("id"),
+                        nation.getId(),
+                        worldName,
+                        territoryRs.getInt("center_x"),
+                        territoryRs.getInt("center_z"),
+                        territoryRs.getInt("radius")
+                    );
+                    nation.setTerritory(territory);
+                    plugin.getLogger().info("成功加载国家 " + nation.getName() + " 的领地数据: " + 
+                        String.format("中心(%d, %d), 半径%d, 世界%s", 
+                            territory.getCenterX(), territory.getCenterZ(), 
+                            territory.getRadius(), territory.getWorldName()));
+                } else {
+                    plugin.getLogger().warning("国家 " + nation.getName() + " 的领地世界 " + 
+                        worldName + " 未加载，领地功能将暂时不可用");
+                }
+            } else {
+                plugin.getLogger().info("国家 " + nation.getName() + " 未设置领地");
+            }
+            
+            plugin.getLogger().info("国家 " + nation.getName() + " 的数据加载完成");
+            
+        } catch (SQLException e) {
+            plugin.getLogger().severe("加载国家 " + nation.getName() + " 的数据时发生错误: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public void saveNationData(Nation nation) {
+        try (Connection conn = getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                // 保存传送点数据
+                PreparedStatement spawnStmt = conn.prepareStatement(
+                    "UPDATE " + tablePrefix + "nations SET " +
+                    "spawn_world = ?, spawn_x = ?, spawn_y = ?, spawn_z = ?, spawn_yaw = ?, spawn_pitch = ? " +
+                    "WHERE id = ?"
+                );
+                
+                if (nation.getSpawnWorldName() != null) {
+                    spawnStmt.setString(1, nation.getSpawnWorldName());
+                    spawnStmt.setDouble(2, nation.getSpawnX());
+                    spawnStmt.setDouble(3, nation.getSpawnY());
+                    spawnStmt.setDouble(4, nation.getSpawnZ());
+                    spawnStmt.setFloat(5, nation.getSpawnYaw());
+                    spawnStmt.setFloat(6, nation.getSpawnPitch());
+                } else {
+                    spawnStmt.setNull(1, java.sql.Types.VARCHAR);
+                    spawnStmt.setNull(2, java.sql.Types.DOUBLE);
+                    spawnStmt.setNull(3, java.sql.Types.DOUBLE);
+                    spawnStmt.setNull(4, java.sql.Types.DOUBLE);
+                    spawnStmt.setNull(5, java.sql.Types.FLOAT);
+                    spawnStmt.setNull(6, java.sql.Types.FLOAT);
+                }
+                spawnStmt.setLong(7, nation.getId());
+                spawnStmt.executeUpdate();
+                
+                // 保存领地数据
+                if (nation.getTerritory() != null) {
+                    PreparedStatement stmt = conn.prepareStatement(
+                        "INSERT INTO " + tablePrefix + "territories " +
+                        "(nation_id, world_name, center_x, center_z, radius) VALUES (?,?,?,?,?) " +
+                        "ON DUPLICATE KEY UPDATE world_name=?, center_x=?, center_z=?, radius=?"
+                    );
+                    
+                    stmt.setLong(1, nation.getId());
+                    stmt.setString(2, nation.getTerritory().getWorldName());
+                    stmt.setInt(3, nation.getTerritory().getCenterX());
+                    stmt.setInt(4, nation.getTerritory().getCenterZ());
+                    stmt.setInt(5, nation.getTerritory().getRadius());
+                    
+                    stmt.setString(6, nation.getTerritory().getWorldName());
+                    stmt.setInt(7, nation.getTerritory().getCenterX());
+                    stmt.setInt(8, nation.getTerritory().getCenterZ());
+                    stmt.setInt(9, nation.getTerritory().getRadius());
+                    
+                    stmt.executeUpdate();
+                }
+                
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().severe("保存国家 " + nation.getName() + " 的数据时发生错误: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 } 

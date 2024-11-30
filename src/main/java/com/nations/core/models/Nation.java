@@ -2,6 +2,10 @@ package com.nations.core.models;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.World;
+
+import com.nations.core.NationsCore;
+
 import java.util.*;
 
 public class Nation {
@@ -11,12 +15,16 @@ public class Nation {
     private int level;
     private double balance;
     private Location spawnPoint;
+    private String spawnWorldName;
+    private double spawnX, spawnY, spawnZ;
+    private float spawnYaw, spawnPitch;
+    private boolean hasSpawnCoordinates = false;
     private String serverId;
     private int serverPort;
     private boolean isLocalServer;
     private Territory territory;
     private final Map<UUID, NationMember> members = new HashMap<>();
-    private final Map<UUID, Long> invites = new HashMap<>();
+    private final Set<UUID> invites = new HashSet<>();
     private final long createdTime;
     
     public Nation(long id, String name, UUID ownerUUID, int level, double balance,
@@ -46,21 +54,19 @@ public class Nation {
     }
     
     public boolean isInvited(UUID playerUuid) {
-        Long expireTime = invites.get(playerUuid);
-        if (expireTime == null) return false;
-        if (System.currentTimeMillis() > expireTime) {
-            invites.remove(playerUuid);
-            return false;
-        }
-        return true;
+        return invites.contains(playerUuid);
     }
     
-    public void invite(UUID playerUuid) {
-        invites.put(playerUuid, System.currentTimeMillis() + 24 * 60 * 60 * 1000);
+    public void addInvite(UUID playerUuid) {
+        invites.add(playerUuid);
     }
     
-    public void cancelInvite(UUID playerUuid) {
+    public void removeInvite(UUID playerUuid) {
         invites.remove(playerUuid);
+    }
+    
+    public void clearInvites() {
+        invites.clear();
     }
     
     public boolean addMember(UUID playerUuid, String rankStr) {
@@ -116,7 +122,7 @@ public class Nation {
     }
     
     public int getMaxRadius() {
-        // 根据国家等级返回最大领土半径
+        // 根据国家等级返回最大领土径
         return switch (level) {
             case 1 -> 15;  // 30*30
             case 2 -> 25;  // 50*50
@@ -163,11 +169,32 @@ public class Nation {
     }
     
     public Location getSpawnPoint() {
+        // 如果传送点为空但有世界名称和坐标，尝试重新加载
+        if (spawnPoint == null && spawnWorldName != null && hasSpawnCoordinates) {
+            World world = Bukkit.getWorld(spawnWorldName);
+            if (world != null) {
+                spawnPoint = new Location(world, spawnX, spawnY, spawnZ, spawnYaw, spawnPitch);
+                NationsCore.getInstance().getLogger().info(
+                    "已为国家 " + name + " 重新加载传送点: " + 
+                    String.format("%.1f, %.1f, %.1f in %s", spawnX, spawnY, spawnZ, spawnWorldName)
+                );
+            }
+        }
         return spawnPoint;
     }
     
     public void setSpawnPoint(Location spawnPoint) {
-        this.spawnPoint = spawnPoint;
+        if (spawnPoint != null && spawnPoint.getWorld() != null) {
+            this.spawnPoint = spawnPoint.clone();
+            this.spawnWorldName = spawnPoint.getWorld().getName();
+            // 同时保存坐标信息
+            this.spawnX = spawnPoint.getX();
+            this.spawnY = spawnPoint.getY();
+            this.spawnZ = spawnPoint.getZ();
+            this.spawnYaw = spawnPoint.getYaw();
+            this.spawnPitch = spawnPoint.getPitch();
+            this.hasSpawnCoordinates = true;
+        }
     }
     
     public Territory getTerritory() {
@@ -189,4 +216,35 @@ public class Nation {
     public String getServerId() {
         return serverId;
     }
+    
+    /**
+     * 获取出生点世界名称
+     */
+    public String getSpawnWorldName() {
+        return spawnWorldName;
+    }
+    
+    public void setSpawnWorldName(String worldName) {
+        this.spawnWorldName = worldName;
+    }
+    
+    /**
+     * 设置传送点坐标（用于世界未加载时）
+     */
+    public void setSpawnCoordinates(double x, double y, double z, float yaw, float pitch) {
+        this.spawnX = x;
+        this.spawnY = y;
+        this.spawnZ = z;
+        this.spawnYaw = yaw;
+        this.spawnPitch = pitch;
+        this.hasSpawnCoordinates = true;
+    }
+    
+    // 添加这些getter方法用于保存数据
+    public double getSpawnX() { return spawnX; }
+    public double getSpawnY() { return spawnY; }
+    public double getSpawnZ() { return spawnZ; }
+    public float getSpawnYaw() { return spawnYaw; }
+    public float getSpawnPitch() { return spawnPitch; }
+    public boolean hasSpawnCoordinates() { return hasSpawnCoordinates; }
 } 

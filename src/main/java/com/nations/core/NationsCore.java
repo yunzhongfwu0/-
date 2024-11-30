@@ -12,9 +12,11 @@ import com.nations.core.listeners.GUIListener;
 import com.nations.core.utils.ChatInputManager;
 import com.nations.core.utils.PerformanceMonitor;
 import com.nations.core.utils.TaskManager;
+import com.nations.core.hooks.NationsPlaceholder;
 
 import lombok.Getter;
 import net.milkbowl.vault.economy.Economy;
+import org.bukkit.Bukkit;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -69,6 +71,12 @@ public class NationsCore extends JavaPlugin {
         // 注册命令和监听器
         registerCommands();
         registerListeners();
+        
+        // 注册 PlaceholderAPI 扩展
+        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            new NationsPlaceholder(this).register();
+            getLogger().info("PlaceholderAPI 扩展已注册！");
+        }
         
         getLogger().info("国家系统插件已成功启动！");
     }

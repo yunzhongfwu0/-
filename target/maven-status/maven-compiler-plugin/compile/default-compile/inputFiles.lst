@@ -12,7 +12,6 @@ D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\TerritoryDetailGUI
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\RankSelectGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\AdminGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\MainGUI.java
-D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\DeleteConfirmGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\SettingsGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\NationsCore.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\MaterialSelectorGUI.java
@@ -45,12 +44,14 @@ D:\我的世界国家插件\Nation\src\main\java\com\nations\core\managers\NationManager
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\utils\FeedbackManager.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\MemberManageAdminGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\player\RequestManageGUI.java
+D:\我的世界国家插件\Nation\src\main\java\com\nations\core\hooks\NationsPlaceholder.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\player\JoinNationGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\utils\TaskManager.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\UpgradeGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\NationDetailGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\EconomyGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\MemberManageGUI.java
+D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\ConfirmGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\StatisticsGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\TransactionLogGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\utils\ItemNameUtil.java

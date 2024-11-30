@@ -5,12 +5,14 @@ import com.nations.core.models.Nation;
 import com.nations.core.models.NationRank;
 import com.nations.core.models.Territory;
 import com.nations.core.models.Transaction;
+import com.nations.core.utils.MessageUtil;
 
 import net.kyori.adventure.text.Component;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.configuration.ConfigurationSection;
@@ -48,13 +50,12 @@ public class NationManager {
     
     private void loadNations() {
         try (Connection conn = plugin.getDatabaseManager().getConnection()) {
-            // 加载所有国家的数据
+            // 加载所有国家的基本数据
             PreparedStatement stmt = conn.prepareStatement(
                 "SELECT n.*, s.port as server_port, " +
-                "t.id as territory_id, t.world_name, t.center_x, t.center_z, t.radius " +
+                "n.spawn_world, n.spawn_x, n.spawn_y, n.spawn_z, n.spawn_yaw, n.spawn_pitch " +
                 "FROM " + plugin.getDatabaseManager().getTablePrefix() + "nations n " +
-                "LEFT JOIN " + plugin.getDatabaseManager().getTablePrefix() + "servers s ON n.server_id = s.id " +
-                "LEFT JOIN " + plugin.getDatabaseManager().getTablePrefix() + "territories t ON n.id = t.nation_id"
+                "LEFT JOIN " + plugin.getDatabaseManager().getTablePrefix() + "servers s ON n.server_id = s.id"
             );
             ResultSet rs = stmt.executeQuery();
             
@@ -62,63 +63,57 @@ public class NationManager {
                 String serverId = rs.getString("server_id");
                 boolean isLocalServer = serverId.equals(plugin.getDatabaseManager().getServerId());
                 
-                // 创建领土对象
-                Territory territory = null;
-                if (rs.getObject("territory_id") != null) {
-                    territory = new Territory(
-                        rs.getLong("territory_id"),
-                        rs.getLong("id"),
-                        rs.getString("world_name"),
-                        rs.getInt("center_x"),
-                        rs.getInt("center_z"),
-                        rs.getInt("radius")
-                    );
-                }
-                
-                // 创建国家对象
-                Nation nation;
-                if (rs.getString("spawn_world") != null) {
-                    nation = new Nation(
+                // 创建国家对象时直接设置传送点数据
+                String spawnWorld = rs.getString("spawn_world");
+                if (spawnWorld != null) {
+                    World world = plugin.getServer().getWorld(spawnWorld);
+                    Location spawnPoint = null;
+                    if (world != null) {
+                        spawnPoint = new Location(
+                            world,
+                            rs.getDouble("spawn_x"),
+                            rs.getDouble("spawn_y"),
+                            rs.getDouble("spawn_z"),
+                            rs.getFloat("spawn_yaw"),
+                            rs.getFloat("spawn_pitch")
+                        );
+                    }
+                    
+                    Nation nation = new Nation(
                         rs.getLong("id"),
                         rs.getString("name"),
                         UUID.fromString(rs.getString("owner_uuid")),
                         rs.getInt("level"),
                         rs.getDouble("balance"),
-                        rs.getString("spawn_world"),
+                        serverId,
+                        rs.getInt("server_port"),
+                        isLocalServer
+                    );
+                    
+                    // 设置传送点相关数据
+                    nation.setSpawnWorldName(spawnWorld);
+                    nation.setSpawnCoordinates(
                         rs.getDouble("spawn_x"),
                         rs.getDouble("spawn_y"),
                         rs.getDouble("spawn_z"),
                         rs.getFloat("spawn_yaw"),
-                        rs.getFloat("spawn_pitch"),
-                        serverId,
-                        rs.getInt("server_port"),
-                        isLocalServer
+                        rs.getFloat("spawn_pitch")
                     );
-                } else {
-                    nation = new Nation(
-                        rs.getLong("id"),
-                        rs.getString("name"),
-                        UUID.fromString(rs.getString("owner_uuid")),
-                        rs.getInt("level"),
-                        rs.getDouble("balance"),
-                        serverId,
-                        rs.getInt("server_port"),
-                        isLocalServer
-                    );
+                    if (spawnPoint != null) {
+                        nation.setSpawnPoint(spawnPoint);
+                    }
+                    
+                    // 加载领地数据
+                    Territory territory = loadTerritory(nation);
+                    nation.setTerritory(territory);
+                    nationsByName.put(nation.getName().toLowerCase(), nation);
+                    nationsByOwner.put(nation.getOwnerUUID(), nation);
+                    
+                    plugin.getLogger().info("已加载国家: " + nation.getName() + 
+                        (isLocalServer ? " (本服)" : " (子服:" + serverId + ")") +
+                        (territory != null ? " [已有领土]" : " [无领土]") +
+                        (spawnPoint != null ? " [已设传送点]" : " [传送点世界未加载]"));
                 }
-                
-                // 设置领土
-                nation.setTerritory(territory);
-                
-                // 加载成员
-                loadNationMembers(nation);
-                
-                nationsByName.put(nation.getName().toLowerCase(), nation);
-                nationsByOwner.put(nation.getOwnerUUID(), nation);
-                
-                plugin.getLogger().info("已加载国家: " + nation.getName() + 
-                    (isLocalServer ? " (本服)" : " (子服:" + serverId + ")") +
-                    (territory != null ? " [已有领土]" : " [无领土]"));
             }
             
             // 加载成员数据时建立映射
@@ -143,31 +138,36 @@ public class NationManager {
                     playerNations.put(playerUuid, nation);
                 }
             }
+            
+            plugin.getLogger().info("共加载了 " + nationsByName.size() + " 个国家");
+            
         } catch (SQLException e) {
-            plugin.getLogger().warning("加载国家数据失败: " + e.getMessage());
+            plugin.getLogger().severe("加载国家数据失败: " + e.getMessage());
             e.printStackTrace();
         }
     }
     
     // 如果需要单独加载领土数据
-    private Territory loadTerritory(long nationId) {
+    private Territory loadTerritory(Nation nation) {
         try (Connection conn = plugin.getDatabaseManager().getConnection()) {
             PreparedStatement stmt = conn.prepareStatement(
                 "SELECT * FROM " + plugin.getDatabaseManager().getTablePrefix() + 
                 "territories WHERE nation_id = ?"
             );
-            stmt.setLong(1, nationId);
+            stmt.setLong(1, nation.getId());
             ResultSet rs = stmt.executeQuery();
             
             if (rs.next()) {
-                return new Territory(
+                Territory territory = new Territory(
                     rs.getLong("id"),
-                    nationId,
+                    nation.getId(),
                     rs.getString("world_name"),
                     rs.getInt("center_x"),
                     rs.getInt("center_z"),
                     rs.getInt("radius")
                 );
+                nation.setTerritory(territory); // 直接设置给 nation
+                return territory;
             }
         } catch (SQLException e) {
             plugin.getLogger().warning("加载领土数据失败: " + e.getMessage());
@@ -199,7 +199,7 @@ public class NationManager {
                 territoryStmt.setLong(1, nation.getId());
                 territoryStmt.executeUpdate();
 
-                // 4. 删除国家记录
+                // 4. 除国家记录
                 PreparedStatement nationStmt = conn.prepareStatement(
                     "DELETE FROM " + plugin.getDatabaseManager().getTablePrefix() + 
                     "nations WHERE id = ?"
@@ -350,13 +350,67 @@ public class NationManager {
     }
     
     public void teleportToNation(Player player, Nation nation) {
-        if (nation.getSpawnPoint() == null) {
-            player.sendMessage("§c该国家还未设置传送点！");
+        if (nation == null) {
+            player.sendMessage(MessageUtil.error("无效的国家！"));
             return;
         }
+
+        Location spawnPoint = nation.getSpawnPoint();
+        if (spawnPoint == null) {
+            player.sendMessage(MessageUtil.error("该国家还未设置传送点！"));
+            return;
+        }
+
+        // 获取世界对象
+        String worldName = spawnPoint.getWorld() != null ? 
+            spawnPoint.getWorld().getName() : nation.getSpawnWorldName();
+        if (worldName == null) {
+            player.sendMessage(MessageUtil.error("传送失败：无效的世界名称！"));
+            return;
+        }
+
+        World world = plugin.getServer().getWorld(worldName);
+        if (world == null) {
+            player.sendMessage(MessageUtil.error("传送失败：目标世界不存在或未加载！"));
+            return;
+        }
+
+        // 创建新的 Location 对象，确保包含有效的世界引用
+        Location destination = new Location(
+            world,
+            spawnPoint.getX(),
+            spawnPoint.getY(),
+            spawnPoint.getZ(),
+            spawnPoint.getYaw(),
+            spawnPoint.getPitch()
+        );
+
+        // 检查目标位置是否安全
+        if (!isSafeLocation(destination)) {
+            player.sendMessage(MessageUtil.error("传送失败：目标位置不安全！"));
+            return;
+        }
+
+        // 执行传送
+        player.teleport(destination);
+        player.sendMessage(MessageUtil.success("已传送到国家传送点！"));
+    }
+
+    /**
+     * 检查位置是否安全
+     */
+    private boolean isSafeLocation(Location loc) {
+        if (loc == null || loc.getWorld() == null) return false;
         
-        player.teleport(nation.getSpawnPoint());
-        player.sendMessage("§a已传送至国家 " + nation.getName() + " 的传送点！");
+        // 检查脚下的方块
+        Location ground = loc.clone().subtract(0, 1, 0);
+        if (!ground.getBlock().getType().isSolid()) {
+            return false;
+        }
+        
+        // 检查玩家位置和头顶的方块
+        return loc.getBlock().getType().isAir() && 
+               loc.clone().add(0, 1, 0).getBlock().getType().isAir();
     }
     
     public boolean setBalance(Nation nation, double amount) {
@@ -463,7 +517,7 @@ public class NationManager {
         return nationsByName.values();
     }
     
-    // 获取本服的国家
+    // 获取本服的��家
     public Collection<Nation> getLocalNations() {
         return nationsByName.values().stream()
             .filter(Nation::isLocalServer)
@@ -512,22 +566,15 @@ public class NationManager {
             
             if (stmt.executeUpdate() > 0) {
                 nation.addMember(playerUuid, rank);
-                playerNations.put(playerUuid, nation);
-                
-                // 清除该玩家的所有申请
-                clearAllPlayerRequests(playerUuid);
-                
-                // 通知玩家
                 Player player = plugin.getServer().getPlayer(playerUuid);
                 if (player != null) {
-                    player.sendMessage("§a你已加入国家 " + nation.getName());
+                    player.sendMessage(MessageUtil.success("欢迎加入国家 " + nation.getName()));
                 }
-                
                 return true;
             }
             return false;
         } catch (SQLException e) {
-            plugin.getLogger().warning("添加成员失败: " + e.getMessage());
+            plugin.getLogger().warning(MessageUtil.error("添加成员失败: " + e.getMessage()));
             e.printStackTrace();
             return false;
         }
@@ -547,6 +594,7 @@ public class NationManager {
                 if (stmt.executeUpdate() > 0) {
                     nation.removeMember(playerUuid);
                     playerNations.remove(playerUuid);
+                    
                     conn.commit();
                     return true;
                 }
@@ -560,7 +608,7 @@ public class NationManager {
                 conn.setAutoCommit(true);
             }
         } catch (SQLException e) {
-            plugin.getLogger().warning("移除成员失败: " + e.getMessage());
+            plugin.getLogger().warning(MessageUtil.error("移除成员失败: " + e.getMessage()));
             e.printStackTrace();
         }
         return false;
@@ -600,6 +648,13 @@ public class NationManager {
 
                 if (stmt.executeUpdate() > 0) {
                     nation.promoteMember(playerUuid, newRank);
+                    
+                    // 通知玩家
+                    Player player = plugin.getServer().getPlayer(playerUuid);
+                    if (player != null) {
+                        player.sendMessage(MessageUtil.success("你的职位已被提升为: " + newRank.getDisplayName()));
+                    }
+                    
                     conn.commit();
                     return true;
                 }
@@ -613,23 +668,23 @@ public class NationManager {
                 conn.setAutoCommit(true);
             }
         } catch (SQLException e) {
-            plugin.getLogger().warning("更新成员职位败: " + e.getMessage());
+            plugin.getLogger().warning(MessageUtil.error("更新成员职位失败: " + e.getMessage()));
             e.printStackTrace();
         }
         return false;
     }
     
     public boolean createNationWithTerritory(Player owner, String nationName, Location center) {
-        // 检查名称是否已存在
         if (nationsByName.containsKey(nationName.toLowerCase())) {
+            owner.sendMessage(MessageUtil.error("已存在同名的国家！"));
             return false;
         }
         
-        // 检查玩家是否已经拥有国家
         if (nationsByOwner.containsKey(owner.getUniqueId())) {
+            owner.sendMessage(MessageUtil.error("你已经拥有一个国家了！"));
             return false;
         }
-
+        
         // 检查创建费用
         ConfigurationSection costConfig = plugin.getConfig().getConfigurationSection("nations.creation");
         double money = costConfig.getDouble("money", 0);
@@ -753,7 +808,7 @@ public class NationManager {
                 
                 // 4. 标记领土边界（只标记一次）
                 territory.markBorder(center.getWorld());
-                //清除该玩家的所有申请
+                //清除玩家的所有申请
                 clearAllPlayerRequests(owner.getUniqueId());
                 conn.commit();
                 return true;
@@ -764,7 +819,7 @@ public class NationManager {
                 conn.setAutoCommit(true);
             }
         } catch (SQLException e) {
-            plugin.getLogger().warning("创建国家失败: " + e.getMessage());
+            plugin.getLogger().warning(MessageUtil.error("创建国家失败: " + e.getMessage()));
             e.printStackTrace();
         }
         return false;

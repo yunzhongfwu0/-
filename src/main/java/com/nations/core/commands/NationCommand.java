@@ -4,6 +4,7 @@ import com.nations.core.NationsCore;
 import com.nations.core.gui.*;
 import com.nations.core.models.Nation;
 import com.nations.core.models.Territory;
+import com.nations.core.utils.MessageUtil;
 import com.nations.core.models.NationRank;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -17,6 +18,7 @@ import org.jetbrains.annotations.NotNull;
 import org.bukkit.configuration.ConfigurationSection;
 
 import java.util.Optional;
+import java.util.UUID;
 
 public class NationCommand implements CommandExecutor {
     
@@ -72,26 +74,29 @@ public class NationCommand implements CommandExecutor {
 
     public void handleInvite(Player player, String[] args) {
         if (args.length < 2) {
-            player.sendMessage("§c用法: /nation invite <玩家名>");
+            player.sendMessage(MessageUtil.error("用法: /nation invite <玩家名>"));
             return;
         }
 
         Optional<Nation> nation = plugin.getNationManager().getNationByPlayer(player);
         if (nation.isEmpty()) {
-            player.sendMessage("§c你没有国家！");
+            player.sendMessage(MessageUtil.error("你没有国家！"));
             return;
         }
 
         Player target = plugin.getServer().getPlayer(args[1]);
         if (target == null) {
-            player.sendMessage("§c找不到指定的玩家！");
+            player.sendMessage(MessageUtil.error("找不到指定的玩家！"));
             return;
         }
 
         if (plugin.getNationManager().getNationByPlayer(target).isPresent()) {
-            player.sendMessage("§c该玩家已经有国家了！");
+            player.sendMessage(MessageUtil.error("该玩家已经有国家了！"));
             return;
         }
+
+        // 添加邀请
+        nation.get().addInvite(target.getUniqueId());
 
         // 发送带点击事件的邀请消息
         target.sendMessage(Component.text("§6========== 国家邀请 =========="));
@@ -103,28 +108,52 @@ public class NationCommand implements CommandExecutor {
                 .clickEvent(ClickEvent.runCommand("/nation deny " + nation.get().getName()))));
         target.sendMessage(Component.text("§6============================"));
 
-        player.sendMessage("§a已向 " + target.getName() + " 发送邀请！");
+        player.sendMessage(MessageUtil.success("已向 " + target.getName() + " 发送邀请！"));
     }
 
-    public void handleAccept(Player player, String[] args) {
+    private void handleAccept(Player player, String[] args) {
         if (args.length < 2) {
-            player.sendMessage("§c用法: /nation accept <国家名>");
+            player.sendMessage(MessageUtil.error("用法: /nation accept <国家名称>"));
             return;
         }
-
+        
+        if (plugin.getNationManager().getNationByPlayer(player).isPresent()) {
+            player.sendMessage(MessageUtil.error("你已经加入了一个国家！"));
+            return;
+        }
+        
         Optional<Nation> nation = plugin.getNationManager().getNationByName(args[1]);
         if (nation.isEmpty()) {
-            player.sendMessage("§c找不到指定的国家！");
+            player.sendMessage(MessageUtil.error("找不到指定的国家！"));
             return;
         }
-
+        
+        if (!nation.get().isInvited(player.getUniqueId())) {
+            player.sendMessage(MessageUtil.error("你没有收到该国家的邀请！"));
+            return;
+        }
+        
         if (plugin.getNationManager().addMember(nation.get(), player.getUniqueId(), "MEMBER")) {
-            player.sendMessage("§a你已加入国家 " + nation.get().getName() + "！");
-            plugin.getServer().broadcast(
-                Component.text("§e" + player.getName() + " 加入了国家 " + nation.get().getName() + "！")
-            );
+            // 清除该玩家的所有申请
+            plugin.getNationManager().clearAllPlayerRequests(player.getUniqueId());
+            
+            // 通知其他在线成员
+            for (UUID memberId : nation.get().getMembers().keySet()) {
+                Player member = plugin.getServer().getPlayer(memberId);
+                if (member != null && !member.getUniqueId().equals(player.getUniqueId())) {
+                    member.sendMessage(MessageUtil.broadcast("欢迎新成员 " + player.getName() + " 加入国家！"));
+                }
+            }
+            
+            // 额外通知国主(如果不在线或不在成员列表中)
+            Player owner = plugin.getServer().getPlayer(nation.get().getOwnerUUID());
+            if (owner != null && !owner.getUniqueId().equals(player.getUniqueId()) 
+                && !nation.get().getMembers().containsKey(owner.getUniqueId())) {
+                owner.sendMessage(MessageUtil.broadcast("玩家 " + player.getName() + " 接受邀请加入了国家！"));
+            }
+            
         } else {
-            player.sendMessage("§c加入国家失败！");
+            player.sendMessage(MessageUtil.error("加入国家失败！"));
         }
     }
 
@@ -180,30 +209,28 @@ public class NationCommand implements CommandExecutor {
 
     public void handleCreate(Player player, String[] args) {
         if (args.length < 2) {
-            player.sendMessage("§c用法: /nation create <国家名称>");
+            player.sendMessage(MessageUtil.error("用法: /nation create <国家名称>"));
             return;
         }
         
-        String nationName = args[1];
-        
-        // 检查玩家是否已有国家
         if (plugin.getNationManager().getNationByPlayer(player).isPresent()) {
-            player.sendMessage("§c你已经拥有一个国家了！");
+            player.sendMessage(MessageUtil.error("你已经拥有一个国家了！"));
             return;
         }
         
+        String name = args[1];
         // 检查名称长度
         int minLength = plugin.getConfig().getInt("nations.min-name-length", 2);
         int maxLength = plugin.getConfig().getInt("nations.max-name-length", 16);
-        if (nationName.length() < minLength || nationName.length() > maxLength) {
-            player.sendMessage("§c国家名称长度必须在 " + minLength + " 到 " + maxLength + " 个字符之间！");
+        if (name.length() < minLength || name.length() > maxLength) {
+            player.sendMessage(MessageUtil.error("国家名称长度必须在 " + minLength + " 到 " + maxLength + " 个字符之间！"));
             return;
         }
         
         // 检查名称格式
         String nameRegex = plugin.getConfig().getString("nations.name-regex", "^[\u4e00-\u9fa5a-zA-Z0-9_]+$");
-        if (!nationName.matches(nameRegex)) {
-            player.sendMessage("§c国家名称只能包含中文、字母、数字和下划线");
+        if (!name.matches(nameRegex)) {
+            player.sendMessage(MessageUtil.error("国家名称只能包含中文、字母、数字和下划线"));
             return;
         }
         
@@ -211,22 +238,22 @@ public class NationCommand implements CommandExecutor {
         Location center = player.getLocation();
         
         // 创建国家
-        if (plugin.getNationManager().createNationWithTerritory(player, nationName, center)) {
-            player.sendMessage("§a成功创建国家 " + nationName + "！");
-            player.sendMessage("§a国家领土已以你当前位置为中心建立！");
-            player.sendMessage("§a初始领土范围: 30x30");
-            player.sendMessage("§a使用 /nation territory 查看领土信息");
-            player.sendMessage("§a使用 /nation showborder 显示领土边界");
+        if (plugin.getNationManager().createNationWithTerritory(player, name, center)) {
+            player.sendMessage(MessageUtil.success("成功创建国家 " + name + "！"));
+            player.sendMessage(MessageUtil.info("国家领土已以你当前位置为中心建立！"));
+            player.sendMessage(MessageUtil.info("初始领土范围: 30x30"));
+            player.sendMessage(MessageUtil.tip("使用 /nation territory 查看领土信息"));
+            player.sendMessage(MessageUtil.tip("使用 /nation showborder 显示领土边界"));
             
             // 广播消息
             plugin.getServer().broadcast(
-                Component.text("§e" + player.getName() + " 创建了新的国家: " + nationName + "！")
+                Component.text(MessageUtil.broadcast(player.getName() + " 创建了新的国家: " + name + "！"))
             );
             
             // 自动显示领土边界
             plugin.getServer().dispatchCommand(player, "nation showborder");
         } else {
-            player.sendMessage("§c创建国家失败！该名称可能已被使用，或与其他国家领土重叠。");
+            player.sendMessage(MessageUtil.error("创建国家失败！该名称可能已被使用，或与其他国家领土重叠。"));
         }
     }
 
@@ -427,7 +454,7 @@ public class NationCommand implements CommandExecutor {
         }
         
         if (!nation.get().hasPermission(player.getUniqueId(), "nation.promote")) {
-            player.sendMessage("§c你没有提升职位的权限！");
+            player.sendMessage("§c你没有提职位的权限！");
             return;
         }
         

@@ -3,6 +3,8 @@ package com.nations.core.gui;
 import com.nations.core.NationsCore;
 import com.nations.core.gui.player.JoinNationGUI;
 import com.nations.core.models.Nation;
+import com.nations.core.utils.MessageUtil;
+
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.configuration.ConfigurationSection;
@@ -10,11 +12,12 @@ import org.bukkit.configuration.ConfigurationSection;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public class MainGUI extends BaseGUI {
     
     public MainGUI(NationsCore plugin, Player player) {
-        super(plugin, player, "§6国家系统 - 主菜单", 3);
+        super(plugin, player, "§6国家系统 - 主菜单", 4);
         initialize();
     }
     
@@ -26,24 +29,28 @@ public class MainGUI extends BaseGUI {
         if (nationOpt.isEmpty()) {
             // 创建国家按钮
             setItem(11, createItem(Material.EMERALD,
-                "§6创建国家",
-                "§7点击创建一个新的国家",
-                "",
-                "§e说明:",
-                "§7- 需要满足创建条件",
-                "§7- 成为国家领袖",
-                "§7- 拥有完整管理权限"
+                MessageUtil.title("创建国家"),
+                MessageUtil.createLore("创建说明",
+                    "点击创建一个新的国家",
+                    "",
+                    "要求:",
+                    "- 需要满足创建条件",
+                    "- 成为国家领袖",
+                    "- 拥有完整管理权限"
+                ).toArray(new String[0])
             ), p -> new CreateNationGUI(plugin, p).open());
             
             // 加入国家按钮
             setItem(15, createItem(Material.BOOK,
-                "§6加入国家",
-                "§7点击查看可加入的国家",
-                "",
-                "§e说明:",
-                "§7- 浏览所有国家",
-                "§7- 发送加入申请",
-                "§7- 等待审核通过"
+                MessageUtil.title("加入国家"),
+                MessageUtil.createLore("加入说明",
+                    "点击查看可加入的国家",
+                    "",
+                    "说明:",
+                    "- 浏览所有国家",
+                    "- 发送加入申请",
+                    "- 等待审核通过"
+                ).toArray(new String[0])
             ), p -> new JoinNationGUI(plugin, p).open());
             
             return;
@@ -110,7 +117,7 @@ public class MainGUI extends BaseGUI {
                     p.closeInventory();
                     plugin.getNationManager().teleportToNation(p, nation);
                 } else {
-                    p.sendMessage("§c该国家还未设置传送点！");
+                    p.sendMessage(MessageUtil.error("该国家还未设置传送点！"));
                 }
             });
         }
@@ -120,5 +127,59 @@ public class MainGUI extends BaseGUI {
             "§6帮助信息",
             "§7点击查看帮助"
         ), p -> new HelpGUI(plugin, p).open());
+        
+        // 退出按钮
+        if (!player.getUniqueId().equals(nation.getOwnerUUID())) {
+            setItem(31, createItem(Material.BARRIER,
+                MessageUtil.title("退出国家"),
+                MessageUtil.createLore("退出说明",
+                    "点击退出当前国家",
+                    "",
+                    "§c警告:",
+                    "- 退出后将失去所有职位",
+                    "- 需要重新申请才能加入"
+                ).toArray(new String[0])
+            ), p -> ConfirmGUI.open(plugin, p,
+                "确认退出国家",
+                "确认退出",
+                new String[]{
+                    "点击确认退出国家",
+                    "",
+                    "§c警告:",
+                    "- 退出后将失去所有职位",
+                    "- 需要重新申请才能加入"
+                },
+                confirmPlayer -> {
+                    if (plugin.getNationManager().removeMember(nation, confirmPlayer.getUniqueId())) {
+                        confirmPlayer.sendMessage(MessageUtil.success("你已退出国家 " + nation.getName()));
+                        
+                        
+                        // 通知其他在线成员
+                        for (UUID memberId : nation.getMembers().keySet()) {
+                            Player member = plugin.getServer().getPlayer(memberId);
+                            if (member != null && !member.getUniqueId().equals(confirmPlayer.getUniqueId())) {
+                                member.sendMessage(MessageUtil.broadcast(
+                                    "玩家 " + confirmPlayer.getName() + " 退出了国家"
+                                ));
+                            }
+                        }
+                        
+                        // 额外通知国主(如果不在线)
+                        Player owner = plugin.getServer().getPlayer(nation.getOwnerUUID());
+                        if (owner != null && !owner.getUniqueId().equals(confirmPlayer.getUniqueId()) 
+                            && !nation.getMembers().containsKey(owner.getUniqueId())) {
+                            owner.sendMessage(MessageUtil.broadcast(
+                                "玩家 " + confirmPlayer.getName() + " 退出了国家"
+                            ));
+                        }
+                        
+                        new MainGUI(plugin, confirmPlayer).open();
+                    } else {
+                        confirmPlayer.sendMessage(MessageUtil.error("退出国家失败！"));
+                    }
+                },
+                cancelPlayer -> new MainGUI(plugin, cancelPlayer).open()
+            ));
+        }
     }
 } 
