@@ -26,6 +26,7 @@ public class Nation {
     private final Map<UUID, NationMember> members = new HashMap<>();
     private final Set<UUID> invites = new HashSet<>();
     private final long createdTime;
+    private Set<Building> buildings = new HashSet<>();
     
     public Nation(long id, String name, UUID ownerUUID, int level, double balance,
                  String serverId, int serverPort, boolean isLocalServer) {
@@ -96,7 +97,9 @@ public class Nation {
     }
     
     public NationRank getMemberRank(UUID playerUuid) {
-        if (playerUuid.equals(ownerUUID)) return NationRank.OWNER;
+        if (ownerUUID.equals(playerUuid)) {
+            return NationRank.OWNER;
+        }
         NationMember member = members.get(playerUuid);
         return member != null ? member.getRank() : null;
     }
@@ -114,7 +117,7 @@ public class Nation {
     }
     
     public boolean isMember(UUID playerUuid) {
-        return playerUuid.equals(ownerUUID) || members.containsKey(playerUuid);
+        return ownerUUID.equals(playerUuid) || members.containsKey(playerUuid);
     }
     
     public boolean isInTerritory(Location location) {
@@ -171,9 +174,10 @@ public class Nation {
     public Location getSpawnPoint() {
         // 如果传送点为空但有世界名称和坐标，尝试重新加载
         if (spawnPoint == null && spawnWorldName != null && hasSpawnCoordinates) {
-            World world = Bukkit.getWorld(spawnWorldName);
-            if (world != null) {
-                spawnPoint = new Location(world, spawnX, spawnY, spawnZ, spawnYaw, spawnPitch);
+            spawnPoint = NationsCore.getInstance().getWorldManager()
+                .createLocation(spawnWorldName, spawnX, spawnY, spawnZ, spawnYaw, spawnPitch);
+            
+            if (spawnPoint != null) {
                 NationsCore.getInstance().getLogger().info(
                     "已为国家 " + name + " 重新加载传送点: " + 
                     String.format("%.1f, %.1f, %.1f in %s", spawnX, spawnY, spawnZ, spawnWorldName)
@@ -183,18 +187,41 @@ public class Nation {
         return spawnPoint;
     }
     
-    public void setSpawnPoint(Location spawnPoint) {
-        if (spawnPoint != null && spawnPoint.getWorld() != null) {
-            this.spawnPoint = spawnPoint.clone();
-            this.spawnWorldName = spawnPoint.getWorld().getName();
-            // 同时保存坐标信息
-            this.spawnX = spawnPoint.getX();
-            this.spawnY = spawnPoint.getY();
-            this.spawnZ = spawnPoint.getZ();
-            this.spawnYaw = spawnPoint.getYaw();
-            this.spawnPitch = spawnPoint.getPitch();
+    public void setSpawnPoint(Location location) {
+        if (location != null) {
+            this.spawnWorldName = location.getWorld().getName();
+            this.spawnX = location.getX();
+            this.spawnY = location.getY();
+            this.spawnZ = location.getZ();
+            this.spawnYaw = location.getYaw();
+            this.spawnPitch = location.getPitch();
             this.hasSpawnCoordinates = true;
+            this.spawnPoint = location.clone();
         }
+    }
+    
+    /**
+     * 检查传送点是否有效
+     */
+    public boolean isSpawnPointValid() {
+        return NationsCore.getInstance().getWorldManager()
+            .isLocationValid(getSpawnPoint());
+    }
+    
+    /**
+     * 尝试修复无效的传送点
+     */
+    public boolean fixSpawnPoint() {
+        if (!hasSpawnCoordinates || spawnWorldName == null) return false;
+        
+        Location fixed = NationsCore.getInstance().getWorldManager()
+            .createLocation(spawnWorldName, spawnX, spawnY, spawnZ, spawnYaw, spawnPitch);
+        
+        if (fixed != null) {
+            this.spawnPoint = fixed;
+            return true;
+        }
+        return false;
     }
     
     public Territory getTerritory() {
@@ -247,4 +274,57 @@ public class Nation {
     public float getSpawnYaw() { return spawnYaw; }
     public float getSpawnPitch() { return spawnPitch; }
     public boolean hasSpawnCoordinates() { return hasSpawnCoordinates; }
+    
+    public boolean hasBuilding(BuildingType type) {
+        return buildings.stream()
+            .anyMatch(b -> b.getType() == type);
+    }
+    
+    public Building getBuilding(BuildingType type) {
+        return buildings.stream()
+            .filter(b -> b.getType() == type)
+            .findFirst()
+            .orElse(null);
+    }
+    
+    public boolean hasBuildingLevel(BuildingType type, int level) {
+        Building building = getBuilding(type);
+        return building != null && building.getLevel() >= level;
+    }
+    
+    public void addBuilding(Building building) {
+        buildings.add(building);
+    }
+    
+    public void removeBuilding(Building building) {
+        buildings.remove(building);
+    }
+    
+    // 获取建筑加成
+    public double getBuildingBonus(String bonusType) {
+        return buildings.stream()
+            .mapToDouble(b -> b.getBonuses().getOrDefault(bonusType, 0.0))
+            .sum();
+    }
+    
+    public Set<Building> getBuildings() {
+        return buildings;
+    }
+    
+    public int getMaxMembers() {
+        // 使用 NationsCore.getInstance() 获取插件实例
+        NationsCore plugin = NationsCore.getInstance();
+        
+        // 从基础配置获取等级对应的成员上限
+        int baseLimit = plugin.getConfig().getInt("nations.levels." + level + ".max-members", 10);
+        
+        // 计算建筑加成
+        int buildingBonus = (int)getBuildingBonus("max_members");
+        
+        return baseLimit + buildingBonus;
+    }
+    
+    public int getCurrentMembers() {
+        return members.size() + 1; // +1 是因为包括国主
+    }
 } 

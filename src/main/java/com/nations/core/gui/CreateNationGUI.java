@@ -45,6 +45,9 @@ public class CreateNationGUI extends BaseGUI {
         lore.add("§e创建费用:");
         lore.add("§7金币: §f" + money + (plugin.getVaultEconomy().has(player, money) ? " §a✔" : " §c✘"));
         
+        // 使用 final 修饰
+        final boolean[] hasEnoughResources = {plugin.getVaultEconomy().has(player, money)};
+        
         if (items != null && !items.getKeys(false).isEmpty()) {
             lore.add("");
             lore.add("§e所需物品:");
@@ -52,17 +55,24 @@ public class CreateNationGUI extends BaseGUI {
                 Material material = Material.valueOf(itemName);
                 int required = items.getInt(itemName);
                 int playerHas = countPlayerItems(player, material);
-                String chineseName = ItemNameUtil.getChineseName(material);
+                String chineseName = ItemNameUtil.getName(material);
                 lore.add("§7" + chineseName + ": §f" + required + 
                     (playerHas >= required ? " §a✔" : " §c✘ (" + playerHas + ")"));
+                if (playerHas < required) {
+                    hasEnoughResources[0] = false;
+                }
             }
         }
         
         // 创建国家按钮
         setItem(13, createItem(Material.EMERALD,
-            "§6点击创建国家",
+            hasEnoughResources[0] ? "§a点击创建国家" : "§c资源不足",
             lore.toArray(new String[0])
         ), p -> {
+            if (!hasEnoughResources[0]) {
+                p.sendMessage(MessageUtil.error("创建失败！资源不足"));
+                return;
+            }
             p.closeInventory();
             p.sendMessage("§a请在聊天栏输入国家名称，或输入 'cancel' 取消");
             
@@ -108,5 +118,38 @@ public class CreateNationGUI extends BaseGUI {
             }
         }
         return count;
+    }
+    
+    private ItemStack createCostItem() {
+        List<String> lore = new ArrayList<>();
+        lore.add("§7创建国家需要以下资源：");
+        lore.add("");
+        
+        // 获取金币费用
+        double money = plugin.getConfigManager().getCreateNationMoney();
+        lore.add("§7金币: §f" + money + 
+            (plugin.getVaultEconomy().has(player, money) ? " §a✔" : " §c✘"));
+        lore.add("");
+        
+        // 获取物品费用
+        ConfigurationSection items = plugin.getConfigManager().getCreateNationCost();
+        boolean hasAll = plugin.getVaultEconomy().has(player, money);
+        
+        if (items != null && !items.getKeys(false).isEmpty()) {
+            lore.add("§7所需物品：");
+            for (String itemName : items.getKeys(false)) {
+                Material material = Material.valueOf(itemName);
+                int required = items.getInt(itemName);
+                int playerHas = countPlayerItems(player, material);
+                String chineseName = ItemNameUtil.getName(material);
+                lore.add("§7" + chineseName + ": §f" + required + 
+                    (playerHas >= required ? " §a✔" : " §c✘ (" + playerHas + ")"));
+                if (playerHas < required) hasAll = false;
+            }
+        }
+        
+        return createItem(Material.EMERALD,
+            hasAll ? "§a点击创建国家" : "§c资源不足",
+            lore.toArray(new String[0]));
     }
 } 

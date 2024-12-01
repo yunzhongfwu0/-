@@ -38,8 +38,10 @@ public class Territory {
         if (!location.getWorld().getName().equals(worldName)) {
             return false;
         }
+        
         int dx = location.getBlockX() - centerX;
         int dz = location.getBlockZ() - centerZ;
+        
         return Math.abs(dx) <= radius && Math.abs(dz) <= radius;
     }
     
@@ -146,5 +148,9 @@ public class Territory {
             z + 0.5
         );
         player.spawnParticle(Particle.END_ROD, loc, 1, 0, 0, 0, 0);
+    }
+    
+    public World getWorld() {
+        return Bukkit.getWorld(worldName);
     }
 } 

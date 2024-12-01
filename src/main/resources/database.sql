@@ -66,4 +66,39 @@ CREATE TABLE IF NOT EXISTS nc_transactions (
     description TEXT,
     timestamp BIGINT NOT NULL,
     FOREIGN KEY (nation_id) REFERENCES nc_nations(id) ON DELETE CASCADE
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- 创建建筑表
+CREATE TABLE IF NOT EXISTS nc_buildings (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    nation_id BIGINT NOT NULL,
+    type VARCHAR(32) NOT NULL,
+    level INT NOT NULL DEFAULT 1,
+    world VARCHAR(64) NOT NULL,
+    x INT NOT NULL,
+    y INT NOT NULL,
+    z INT NOT NULL,
+    created_time BIGINT NOT NULL,
+    FOREIGN KEY (nation_id) REFERENCES nc_nations(id) ON DELETE CASCADE
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- 创建建筑升级记录表
+CREATE TABLE IF NOT EXISTS nc_building_upgrades (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    building_id BIGINT NOT NULL,
+    from_level INT NOT NULL,
+    to_level INT NOT NULL,
+    upgrade_time BIGINT NOT NULL,
+    FOREIGN KEY (building_id) REFERENCES nc_buildings(id) ON DELETE CASCADE
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- 创建建筑资源消耗记录表
+CREATE TABLE IF NOT EXISTS nc_building_resources (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    building_id BIGINT NOT NULL,
+    material VARCHAR(32) NOT NULL,
+    amount INT NOT NULL,
+    action VARCHAR(16) NOT NULL, -- BUILD/UPGRADE/DEMOLISH
+    action_time BIGINT NOT NULL,
+    FOREIGN KEY (building_id) REFERENCES nc_buildings(id) ON DELETE CASCADE
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; 

@@ -3,6 +3,8 @@ package com.nations.core.utils;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.bukkit.Material;
+
 public class MessageUtil {
     
     private static final String LINE = "§7§m                                                ";
@@ -213,5 +215,10 @@ public class MessageUtil {
             }
         }
         return lore;
+    }
+    
+    public static String formatResourceRequirement(Material material, int required, int has) {
+        String itemName = ItemNameUtil.getName(material);
+        return "§7- " + itemName + ": §f需要 " + required + "，拥有 " + has;
     }
 } 

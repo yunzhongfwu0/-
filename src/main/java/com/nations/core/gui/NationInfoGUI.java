@@ -18,8 +18,11 @@ public class NationInfoGUI extends BaseGUI {
         fillBorder(Material.GRAY_STAINED_GLASS_PANE);
         
         // 基本信息
-        setItem(10, createItem(Material.NAME_TAG,
-            "§6国家名称: §f" + nation.getName(),
+        setItem(13, createItem(Material.BEACON,
+            "§6" + nation.getName(),
+            "§7等级: §f" + nation.getLevel(),
+            "§7成员: §f" + nation.getCurrentMembers() + "/" + nation.getMaxMembers(),
+            "§7余额: §f" + nation.getBalance(),
             "§7创建时间: §f" + new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm")
                 .format(new java.util.Date(nation.getCreatedTime()))
         ), null);

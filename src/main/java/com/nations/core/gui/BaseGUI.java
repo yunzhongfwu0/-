@@ -1,6 +1,8 @@
 package com.nations.core.gui;
 
 import com.nations.core.NationsCore;
+import com.nations.core.models.BuildingType;
+
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -102,5 +104,15 @@ public abstract class BaseGUI implements InventoryHolder {
         if (player.getOpenInventory().getTopInventory().equals(inventory)) {
             player.closeInventory();
         }
+    }
+    
+    protected Material getBuildingMaterial(BuildingType type) {
+        return switch (type) {
+            case TOWN_HALL -> Material.BEACON;
+            case BARRACKS -> Material.IRON_SWORD;
+            case MARKET -> Material.EMERALD;
+            case WAREHOUSE -> Material.CHEST;
+            case FARM -> Material.WHEAT;
+        };
     }
 } 

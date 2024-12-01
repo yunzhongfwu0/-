@@ -39,6 +39,7 @@ nations:
       upgrade-cost:
         money: 0  # 初始等级无需费用
         items: {}
+      max-buildings: 3  # 1级国家最多3个建筑
     2:
       name: "发展中国家"
       max-members: 20
@@ -49,6 +50,7 @@ nations:
           DIAMOND: 20
           EMERALD: 10
           NETHERITE_INGOT: 2
+      max-buildings: 5
     3:
       name: "地区强国"
       max-members: 30
@@ -59,6 +61,7 @@ nations:
           DIAMOND: 40
           EMERALD: 20
           NETHERITE_INGOT: 4
+      max-buildings: 8
     4:
       name: "世界强国"
       max-members: 50
@@ -69,6 +72,7 @@ nations:
           DIAMOND: 80
           EMERALD: 40
           NETHERITE_INGOT: 8
+      max-buildings: 12
 
 # GUI设置
 gui:
@@ -76,3 +80,16 @@ gui:
   border-color: GRAY_STAINED_GLASS_PANE
   # 是否显示物品提示
   show-tooltips: true 
+
+# 权限设置
+permissions:
+  ranks:
+    OWNER:
+      - nation.building  # 国家建筑管理权限
+      # ... 其他权限
+    ADMIN:
+      - nation.building
+      # ... 其他权限
+    MEMBER:
+      # 普通成员没有建筑管理权限
+      # ... 其他权限

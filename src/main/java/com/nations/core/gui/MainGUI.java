@@ -1,6 +1,7 @@
 package com.nations.core.gui;
 
 import com.nations.core.NationsCore;
+import com.nations.core.gui.building.BuildingMainGUI;
 import com.nations.core.gui.player.JoinNationGUI;
 import com.nations.core.models.Nation;
 import com.nations.core.utils.MessageUtil;
@@ -83,15 +84,26 @@ public class MainGUI extends BaseGUI {
             ), p -> new TerritoryGUI(plugin, p, nation).open());
         }
         
+        // 建筑系统入口
+        if (nation.hasPermission(player.getUniqueId(), "nation.building")) {
+            setItem(14, createItem(Material.CRAFTING_TABLE,
+                "§6建筑管理",
+                "§7点击管理国家建筑",
+                "",
+                "§7当前建筑: §f" + nation.getBuildings().size(),
+                "§7最大数量: §f" + plugin.getConfig().getInt("nations.levels." + nation.getLevel() + ".max-buildings", 5)
+            ), p -> new BuildingMainGUI(plugin, p, nation).open());
+        }
+        
         // 经济管理
-        setItem(14, createItem(Material.GOLD_INGOT,
+        setItem(15, createItem(Material.GOLD_INGOT,
             "§6经济管理",
             "§7点击管理国家经济"
         ), p -> new EconomyGUI(plugin, p, nation).open());
         
         // 国家设置
         if (isOwner) {
-            setItem(15, createItem(Material.REDSTONE_TORCH,
+            setItem(20, createItem(Material.REDSTONE_TORCH,
                 "§6国家设置",
                 "§7点击修改国家设置"
             ), p -> new SettingsGUI(plugin, p, nation).open());

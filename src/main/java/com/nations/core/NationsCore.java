@@ -13,6 +13,9 @@ import com.nations.core.utils.ChatInputManager;
 import com.nations.core.utils.PerformanceMonitor;
 import com.nations.core.utils.TaskManager;
 import com.nations.core.hooks.NationsPlaceholder;
+import com.nations.core.managers.BuildingManager;
+import com.nations.core.managers.WorldManager;
+import com.nations.core.utils.ItemNameUtil;
 
 import lombok.Getter;
 import net.milkbowl.vault.economy.Economy;
@@ -32,6 +35,9 @@ public class NationsCore extends JavaPlugin {
     private NationManager nationManager;
     @Getter
     private Economy economy;
+    private BuildingManager buildingManager;
+    @Getter
+    private WorldManager worldManager;
 
     @Override
     public void onEnable() {
@@ -39,6 +45,10 @@ public class NationsCore extends JavaPlugin {
         
         // 初始化性能监控
         PerformanceMonitor.startMonitoring(this);
+        
+        // 保存默认配置文件
+        saveDefaultConfig();
+        saveResource("zh_cn.json", false);  // 只保存语言文件
         
         // 初始化配置文件
         this.configManager = new ConfigManager(this);
@@ -52,9 +62,6 @@ public class NationsCore extends JavaPlugin {
             return;
         }
         
-        // 初始化管理器
-        this.nationManager = new NationManager(this);
-        
         // 初始化Vault经济
         if (!setupEconomy()) {
             getLogger().severe("未找到Vault经济插件！插件将被禁用！");
@@ -62,11 +69,21 @@ public class NationsCore extends JavaPlugin {
             return;
         }
         
+        // 初始化世界管理器（移到前面）
+        this.worldManager = new WorldManager(this);
+        
+        // 初始化其他管理器
+        this.nationManager = new NationManager(this);
+        this.buildingManager = new BuildingManager(this);
+        
         // 初始化任务管理器
         TaskManager.init(this);
         
         // 初始化聊天输入管理器
         ChatInputManager.init(this);
+        
+        // 初始化物品名称工具
+        ItemNameUtil.init(this);
         
         // 注册命令和监听器
         registerCommands();
@@ -122,5 +139,9 @@ public class NationsCore extends JavaPlugin {
 
     public Economy getVaultEconomy() {
         return economy;
+    }
+
+    public BuildingManager getBuildingManager() {
+        return buildingManager;
     }
 } 

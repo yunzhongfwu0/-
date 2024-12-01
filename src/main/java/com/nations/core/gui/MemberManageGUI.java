@@ -8,6 +8,7 @@ import com.nations.core.utils.MessageUtil;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
@@ -30,16 +31,7 @@ public class MemberManageGUI extends BaseGUI {
         fillBorder(Material.GRAY_STAINED_GLASS_PANE);
         
         // 显示国家所有者
-        ItemStack ownerHead = new ItemStack(Material.PLAYER_HEAD);
-        SkullMeta ownerMeta = (SkullMeta) ownerHead.getItemMeta();
-        ownerMeta.setOwningPlayer(Bukkit.getOfflinePlayer(nation.getOwnerUUID()));
-        ownerMeta.setDisplayName(MessageUtil.title("国家领袖"));
-        ownerMeta.setLore(MessageUtil.createStatusLore("领袖信息",
-            "玩家: " + Bukkit.getOfflinePlayer(nation.getOwnerUUID()).getName(),
-            "职位: 国主"
-        ));
-        ownerHead.setItemMeta(ownerMeta);
-        setItem(4, ownerHead, null);
+        setItem(4, createMemberItem(nation.getOwnerUUID(), "国主"), null);
         
         // 显示成员列表
         int slot = 19;
@@ -47,29 +39,7 @@ public class MemberManageGUI extends BaseGUI {
             UUID memberUUID = entry.getKey();
             NationMember member = entry.getValue();
             
-            ItemStack memberHead = new ItemStack(Material.PLAYER_HEAD);
-            SkullMeta memberMeta = (SkullMeta) memberHead.getItemMeta();
-            memberMeta.setOwningPlayer(Bukkit.getOfflinePlayer(memberUUID));
-            memberMeta.setDisplayName("§f" + Bukkit.getOfflinePlayer(memberUUID).getName());
-            
-            List<String> memberLore = new ArrayList<>();
-            memberLore.addAll(MessageUtil.createStatusLore("成员信息",
-                "职位: " + member.getRank().getDisplayName(),
-                "加入时间: " + member.getFormattedJoinDate()
-            ));
-            
-            if (nation.hasPermission(player.getUniqueId(), "nation.promote")) {
-                memberLore.add("");
-                memberLore.addAll(MessageUtil.createActionLore("可用操作",
-                    "左键 - 提升职位",
-                    "右键 - 踢出成员"
-                ));
-            }
-            
-            memberMeta.setLore(memberLore);
-            memberHead.setItemMeta(memberMeta);
-            
-            setItem(slot++, memberHead, 
+            setItem(slot++, createMemberItem(memberUUID, member.getRank().getDisplayName()), 
                 // 左键 - 提升职位
                 p -> {
                     if (nation.hasPermission(p.getUniqueId(), "nation.promote")) {
@@ -125,6 +95,8 @@ public class MemberManageGUI extends BaseGUI {
                     );
                 }
             );
+            
+            if (slot % 9 == 8) slot += 2;
         }
         
         // 邀请新成员
@@ -153,5 +125,73 @@ public class MemberManageGUI extends BaseGUI {
             MessageUtil.title("返回"),
             MessageUtil.subtitle("点击返回主菜单")
         ), p -> new MainGUI(plugin, p).open());
+    }
+    
+    private ItemStack createMemberItem(UUID uuid, String rank) {
+        OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(uuid);
+        Player player = offlinePlayer.getPlayer();
+        boolean isOnline = player != null && player.isOnline();
+        
+        List<String> lore = new ArrayList<>();
+        lore.add("§7职位: §f" + rank);
+        lore.add("");
+        
+        if (isOnline) {
+            lore.add("§a在线");
+        } else {
+            long lastPlayed = offlinePlayer.getLastPlayed();
+            if (lastPlayed > 0) {
+                String lastPlayedTime = formatLastPlayed(lastPlayed);
+                lore.add("§c离线");
+                lore.add("§7最后在线: §f" + lastPlayedTime);
+            } else {
+                lore.add("§c从未上线");
+            }
+        }
+        
+        if (nation.hasPermission(player.getUniqueId(), "nation.promote")) {
+            lore.add("");
+            lore.add("§e左键 - 设置职位");
+            lore.add("§e右键 - 踢出成员");
+        }
+        
+        return createItem(Material.PLAYER_HEAD,
+            "§6" + offlinePlayer.getName(),
+            lore.toArray(new String[0])
+        );
+    }
+    
+    private String formatLastPlayed(long lastPlayed) {
+        long now = System.currentTimeMillis();
+        long diff = now - lastPlayed;
+        
+        // 转换为分钟
+        long minutes = diff / (1000 * 60);
+        
+        if (minutes < 60) {
+            return minutes + "分钟前";
+        }
+        
+        // 转换为小时
+        long hours = minutes / 60;
+        if (hours < 24) {
+            return hours + "小时前";
+        }
+        
+        // 转换为天
+        long days = hours / 24;
+        if (days < 30) {
+            return days + "天前";
+        }
+        
+        // 转换为月
+        long months = days / 30;
+        if (months < 12) {
+            return months + "个月前";
+        }
+        
+        // 转换为年
+        long years = months / 12;
+        return years + "年前";
     }
 } 

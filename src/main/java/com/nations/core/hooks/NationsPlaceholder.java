@@ -3,6 +3,7 @@ package com.nations.core.hooks;
 import com.nations.core.NationsCore;
 import com.nations.core.models.Nation;
 import com.nations.core.models.NationMember;
+import com.nations.core.models.NationRank;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -75,6 +76,9 @@ public class NationsPlaceholder extends PlaceholderExpansion {
                 
             case "member_rank":
                 return nationOpt.map(n -> {
+                    if (n.getOwnerUUID().equals(player.getUniqueId())) {
+                        return NationRank.OWNER.getDisplayName();
+                    }
                     NationMember member = n.getMembers().get(player.getUniqueId());
                     return member != null ? member.getRank().getDisplayName() : "";
                 }).orElse("");

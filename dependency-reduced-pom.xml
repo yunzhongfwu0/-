@@ -13,6 +13,7 @@
         <includes>
           <include>plugin.yml</include>
           <include>config.yml</include>
+          <include>zh_cn.json</include>
         </includes>
       </resource>
     </resources>

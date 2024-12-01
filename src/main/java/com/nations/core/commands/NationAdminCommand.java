@@ -16,6 +16,7 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Optional;
+import java.util.UUID;
 
 public class NationAdminCommand implements CommandExecutor {
     private final NationsCore plugin;
@@ -133,9 +134,21 @@ public class NationAdminCommand implements CommandExecutor {
                     return true;
                 }
                 if (plugin.getNationManager().addMember(nation.get(), target.getUniqueId(), "MEMBER")) {
-                    player.sendMessage("§a成功将 " + target.getName() + " 添加到国家！");
+                    sender.sendMessage(MessageUtil.success("成功将 " + target.getName() + " 添加到国家！"));
+                    
+                    // 通知被添加的玩家
+                    target.sendMessage(MessageUtil.success("管理员已将你添加到国家 " + nation.get().getName()));
+                    target.sendMessage(MessageUtil.tip("输入 /nation 打开国家菜单"));
+                    
+                    // 通知其他在线成员
+                    for (UUID memberId : nation.get().getMembers().keySet()) {
+                        Player member = plugin.getServer().getPlayer(memberId);
+                        if (member != null && !member.getUniqueId().equals(target.getUniqueId())) {
+                            member.sendMessage(MessageUtil.broadcast("管理员已将 " + target.getName() + " 添加到国家"));
+                        }
+                    }
                 } else {
-                    player.sendMessage("§c添加成员失败！");
+                    sender.sendMessage(MessageUtil.error("添加成员失败！"));
                 }
             }
             case "forcekick" -> {

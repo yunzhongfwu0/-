@@ -98,7 +98,7 @@ public class NationCommand implements CommandExecutor {
         // 添加邀请
         nation.get().addInvite(target.getUniqueId());
 
-        // 发送带点击事件的邀请消息
+        // 发送带点击事件的邀请消��
         target.sendMessage(Component.text("§6========== 国家邀请 =========="));
         target.sendMessage(Component.text("§e" + player.getName() + " 邀请你加入国家 " + nation.get().getName()));
         target.sendMessage(Component.text("§a[点击接受]")
@@ -136,6 +136,9 @@ public class NationCommand implements CommandExecutor {
         if (plugin.getNationManager().addMember(nation.get(), player.getUniqueId(), "MEMBER")) {
             // 清除该玩家的所有申请
             plugin.getNationManager().clearAllPlayerRequests(player.getUniqueId());
+            
+            // 发送成功消息给加入的玩家
+            player.sendMessage(MessageUtil.success("成功加入国家 " + nation.get().getName()));
             
             // 通知其他在线成员
             for (UUID memberId : nation.get().getMembers().keySet()) {
@@ -253,7 +256,7 @@ public class NationCommand implements CommandExecutor {
             // 自动显示领土边界
             plugin.getServer().dispatchCommand(player, "nation showborder");
         } else {
-            player.sendMessage(MessageUtil.error("创建国家失败！该名称可能已被使用，或与其他国家领土重叠。"));
+            player.sendMessage(MessageUtil.error("创建国家失败！该名称能已被使用，或与其他国家领土重叠。"));
         }
     }
 
@@ -520,7 +523,7 @@ public class NationCommand implements CommandExecutor {
     public void handleTerritory(Player player) {
         Optional<Nation> nation = plugin.getNationManager().getNationByPlayer(player);
         if (nation.isEmpty()) {
-            player.sendMessage("§c你没有国家！");
+            player.sendMessage("§c你没有国家");
             return;
         }
         
