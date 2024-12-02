@@ -62,4 +62,12 @@ public enum NationRank {
             return null;
         }
     }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public List<String> getPermissions() {
+        return permissions;
+    }
 } 

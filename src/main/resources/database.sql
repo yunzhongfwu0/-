@@ -101,4 +101,14 @@ CREATE TABLE IF NOT EXISTS nc_building_resources (
     action VARCHAR(16) NOT NULL, -- BUILD/UPGRADE/DEMOLISH
     action_time BIGINT NOT NULL,
     FOREIGN KEY (building_id) REFERENCES nc_buildings(id) ON DELETE CASCADE
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- 创建NPC背包表
+CREATE TABLE IF NOT EXISTS nc_npc_inventories (
+    npc_id BIGINT NOT NULL,
+    slot INT NOT NULL,
+    item_type VARCHAR(64) NOT NULL,
+    amount INT NOT NULL,
+    PRIMARY KEY (npc_id, slot),
+    FOREIGN KEY (npc_id) REFERENCES nc_npcs(id) ON DELETE CASCADE
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; 

@@ -336,62 +336,73 @@ public class BuildingManager {
     }
     
     public boolean demolishBuilding(Nation nation, Building building) {
-        try (Connection conn = plugin.getDatabaseManager().getConnection()) {
-            conn.setAutoCommit(false);
-            try {
-                // 获取建筑位置的世界
-                Location location = building.getBaseLocation();
-                World world = location != null ? location.getWorld() : null;
-                
-                // 只有在世界有效时才执行清理操作
-                if (world != null) {
-                    // 移除全息显示
-                    HologramUtil.removeBuildingHologram(location);
+        // 检查权限
+        if (!building.getNation().equals(nation)) {
+            return false;
+        }
+
+        try {
+            try (Connection conn = plugin.getDatabaseManager().getConnection()) {
+                conn.setAutoCommit(false);
+                try {
+                    // 获取建筑位置的世界
+                    Location location = building.getBaseLocation();
+                    World world = location != null ? location.getWorld() : null;
                     
-                    // 移除边界显示
-                    BuildingBorderUtil.removeBuildingBorder(building);
-                    
-                    // 清除建筑结构
-                    int halfSize = building.getSize() / 2;
-                    for (int x = -halfSize; x <= halfSize; x++) {
-                        for (int z = -halfSize; z <= halfSize; z++) {
-                            for (int y = 0; y < 10; y++) {
-                                location.clone().add(x, y, z).getBlock().setType(Material.AIR);
+                    // 只有在世界有效时才执行清理操作
+                    if (world != null) {
+                        // 移除全息显示
+                        HologramUtil.removeBuildingHologram(location);
+                        
+                        // 移除边界显示
+                        BuildingBorderUtil.removeBuildingBorder(building);
+                        
+                        // 清除建筑结构
+                        int halfSize = building.getSize() / 2;
+                        for (int x = -halfSize; x <= halfSize; x++) {
+                            for (int z = -halfSize; z <= halfSize; z++) {
+                                for (int y = 0; y < 10; y++) {
+                                    location.clone().add(x, y, z).getBlock().setType(Material.AIR);
+                                }
                             }
                         }
+                        
+                        // 返还部分资源
+                        Map<Material, Integer> costs = building.getType().getBuildCosts();
+                        costs.forEach((material, amount) -> {
+                            int refund = (int)(amount * 0.5);
+                            ItemStack refundItem = new ItemStack(material, refund);
+                            world.dropItemNaturally(location, refundItem);
+                        });
                     }
                     
-                    // 返还部分资源
-                    Map<Material, Integer> costs = building.getType().getBuildCosts();
-                    costs.forEach((material, amount) -> {
-                        int refund = (int)(amount * 0.5);
-                        ItemStack refundItem = new ItemStack(material, refund);
-                        world.dropItemNaturally(location, refundItem);
-                    });
+                    // 从数据库中删除建筑记录
+                    PreparedStatement stmt = conn.prepareStatement(
+                        "DELETE FROM " + plugin.getDatabaseManager().getTablePrefix() + 
+                        "buildings WHERE id = ?"
+                    );
+                    stmt.setLong(1, building.getId());
+                    stmt.executeUpdate();
+                    
+                    // 从国家中移除建筑
+                    nation.removeBuilding(building);
+                    
+                    // 从缓存中移除
+                    nationBuildings.get(nation.getId()).remove(building);
+                    
+                    conn.commit();
+                    return true;
+                } catch (SQLException e) {
+                    conn.rollback();
+                    throw e;
                 }
-                
-                // 从数据库中删除建筑记录
-                PreparedStatement stmt = conn.prepareStatement(
-                    "DELETE FROM " + plugin.getDatabaseManager().getTablePrefix() + 
-                    "buildings WHERE id = ?"
-                );
-                stmt.setLong(1, building.getId());
-                stmt.executeUpdate();
-                
-                // 从国家中移除建筑
-                nation.removeBuilding(building);
-                
-                // 从缓存中移除
-                nationBuildings.get(nation.getId()).remove(building);
-                
-                conn.commit();
-                return true;
             } catch (SQLException e) {
-                conn.rollback();
-                throw e;
+                plugin.getLogger().warning("拆除建筑失败: " + e.getMessage());
+                e.printStackTrace();
+                return false;
             }
-        } catch (SQLException e) {
-            plugin.getLogger().warning("拆除建筑失败: " + e.getMessage());
+        } catch (Exception e) {
+            plugin.getLogger().severe("拆除建筑失败: " + e.getMessage());
             e.printStackTrace();
             return false;
         }
@@ -410,6 +421,17 @@ public class BuildingManager {
             plugin.getLogger().warning("保存建筑失败: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+    
+    public Building getBuildingById(long id) {
+        for (Set<Building> buildings : nationBuildings.values()) {
+            for (Building building : buildings) {
+                if (building.getId() == id) {
+                    return building;
+                }
+            }
+        }
+        return null;
     }
     
     // 其他方法...

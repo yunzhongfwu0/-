@@ -153,4 +153,44 @@ public class Territory {
     public World getWorld() {
         return Bukkit.getWorld(worldName);
     }
+
+    public long getId() {
+        return id;
+    }
+
+    public long getNationId() {
+        return nationId;
+    }
+
+    public String getWorldName() {
+        return worldName;
+    }
+
+    public int getCenterX() {
+        return centerX;
+    }
+
+    public int getCenterZ() {
+        return centerZ;
+    }
+
+    public int getRadius() {
+        return radius;
+    }
+
+    public void setRadius(int radius) {
+        this.radius = radius;
+    }
+
+    public void setWorldName(String worldName) {
+        this.worldName = worldName;
+    }
+
+    public void setCenterX(int centerX) {
+        this.centerX = centerX;
+    }
+
+    public void setCenterZ(int centerZ) {
+        this.centerZ = centerZ;
+    }
 } 

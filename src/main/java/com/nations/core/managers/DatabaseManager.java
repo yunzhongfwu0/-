@@ -141,7 +141,7 @@ public class DatabaseManager {
                 CREATE TABLE IF NOT EXISTS %stransactions (
                     id BIGINT PRIMARY KEY AUTO_INCREMENT,
                     nation_id BIGINT NOT NULL,
-                    player_uuid VARCHAR(36) NOT NULL,
+                    player_uuid VARCHAR(36),
                     type VARCHAR(32) NOT NULL,
                     amount DECIMAL(20,2) NOT NULL,
                     description TEXT,
@@ -190,6 +190,74 @@ public class DatabaseManager {
                     FOREIGN KEY (building_id) REFERENCES %sbuildings(id) ON DELETE CASCADE
                 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
             """.formatted(tablePrefix, tablePrefix));
+
+            // 创建 NPC 表
+            try (Statement stmt = conn.createStatement()) {
+                stmt.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS %snpcs (
+                        id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                        building_id BIGINT NOT NULL,
+                        type VARCHAR(32) NOT NULL,
+                        citizens_id INT NOT NULL,
+                        level INT NOT NULL DEFAULT 1,
+                        experience INT NOT NULL DEFAULT 0,
+                        happiness INT NOT NULL DEFAULT 100,
+                        energy INT NOT NULL DEFAULT 100,
+                        work_position_x DOUBLE,
+                        work_position_y DOUBLE,
+                        work_position_z DOUBLE,
+                        work_position_world VARCHAR(64),
+                        rest_position_x DOUBLE,
+                        rest_position_y DOUBLE,
+                        rest_position_z DOUBLE,
+                        rest_position_world VARCHAR(64),
+                        state VARCHAR(32) NOT NULL DEFAULT 'IDLE',
+                        FOREIGN KEY (building_id) REFERENCES %sbuildings(id) ON DELETE CASCADE
+                    )
+                """.formatted(tablePrefix, tablePrefix));
+            }
+
+            // 创建 NPC 工作记录表
+            try (Statement stmt = conn.createStatement()) {
+                stmt.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS %snpc_work_records (
+                        id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                        npc_id BIGINT NOT NULL,
+                        work_type VARCHAR(32) NOT NULL,
+                        start_time BIGINT NOT NULL,
+                        end_time BIGINT,
+                        efficiency DOUBLE NOT NULL,
+                        FOREIGN KEY (npc_id) REFERENCES %snpcs(id) ON DELETE CASCADE
+                    )
+                """.formatted(tablePrefix, tablePrefix));
+            }
+
+            // 创建 NPC 工资记录表
+            try (Statement stmt = conn.createStatement()) {
+                stmt.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS %snpc_salary_records (
+                        id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                        npc_id BIGINT NOT NULL,
+                        amount INT NOT NULL,
+                        pay_time BIGINT NOT NULL,
+                        FOREIGN KEY (npc_id) REFERENCES %snpcs(id) ON DELETE CASCADE
+                    )
+                """.formatted(tablePrefix, tablePrefix));
+            }
+
+            // 创建NPC背包表
+            try (Statement stmt = conn.createStatement()) {
+                stmt.executeUpdate("""
+                CREATE TABLE IF NOT EXISTS %snpc_inventories (
+                    npc_id BIGINT NOT NULL,
+                    slot INT NOT NULL,
+                    item_type VARCHAR(64) NOT NULL,
+                    amount INT NOT NULL,
+                    PRIMARY KEY (npc_id, slot),
+                    FOREIGN KEY (npc_id) REFERENCES %snpcs(id) ON DELETE CASCADE
+                ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+                """.formatted(tablePrefix, tablePrefix));
+            }
 
         } catch (SQLException e) {
             plugin.getLogger().severe("创建数据表失败: " + e.getMessage());

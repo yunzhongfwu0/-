@@ -2,7 +2,7 @@ name: NationsCore
 version: '1.0-SNAPSHOT'
 main: com.nations.core.NationsCore
 api-version: '1.20'
-depend: [Vault]
+depend: [Vault, Citizens]
 softdepend: [PlaceholderAPI]
 commands:
   nation:

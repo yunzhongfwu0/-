@@ -34,6 +34,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.sql.Types;
+import com.nations.core.models.Transaction.TransactionType;
 
 public class NationManager {
     
@@ -348,7 +350,7 @@ public class NationManager {
             return ownerNation;
         }
 
-        // 再检查��否是国家成员
+        // 再检查否是国家成员
         return nationsByName.values().stream()
             .filter(nation -> nation.isMember(player.getUniqueId()))
             .findFirst();
@@ -962,6 +964,7 @@ public class NationManager {
     
     public List<Transaction> getTransactions(Nation nation, int page, int pageSize) {
         List<Transaction> transactions = new ArrayList<>();
+        
         try (Connection conn = plugin.getDatabaseManager().getConnection()) {
             PreparedStatement stmt = conn.prepareStatement(
                 "SELECT * FROM " + plugin.getDatabaseManager().getTablePrefix() + 
@@ -970,24 +973,32 @@ public class NationManager {
             
             stmt.setLong(1, nation.getId());
             stmt.setInt(2, pageSize);
-            stmt.setInt(3, page * pageSize);
+            stmt.setInt(3, (page - 1) * pageSize);
             
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
+                UUID playerUuid = null;
+                String playerUuidStr = rs.getString("player_uuid");
+                if (playerUuidStr != null) {
+                    playerUuid = UUID.fromString(playerUuidStr);
+                }
+                
                 transactions.add(new Transaction(
                     rs.getLong("id"),
-                    rs.getLong("nation_id"),
-                    UUID.fromString(rs.getString("player_uuid")),
-                    Transaction.TransactionType.valueOf(rs.getString("type")),
+                    nation.getId(),
+                    playerUuid,
+                    TransactionType.valueOf(rs.getString("type")),
                     rs.getDouble("amount"),
                     rs.getString("description"),
                     rs.getLong("timestamp")
                 ));
             }
+            
         } catch (SQLException e) {
-            plugin.getLogger().warning("获取交易记录失败: " + e.getMessage());
+            plugin.getLogger().severe("获取交易记录失败: " + e.getMessage());
             e.printStackTrace();
         }
+        
         return transactions;
     }
 
@@ -1462,5 +1473,52 @@ public class NationManager {
             .filter(nation -> nation.getId() == id)
             .findFirst()
             .orElse(null);
+    }
+
+    public void recordTransaction(Nation nation, UUID playerUuid, Transaction.TransactionType type, double amount, String description) {
+        try (Connection conn = plugin.getDatabaseManager().getConnection()) {
+            PreparedStatement stmt = conn.prepareStatement(
+                "INSERT INTO " + plugin.getDatabaseManager().getTablePrefix() + 
+                "transactions (nation_id, player_uuid, type, amount, description, timestamp) " +
+                "VALUES (?, ?, ?, ?, ?, ?)"
+            );
+            
+            stmt.setLong(1, nation.getId());
+            if (playerUuid != null) {
+                stmt.setString(2, playerUuid.toString());
+            } else {
+                stmt.setNull(2, Types.VARCHAR);
+            }
+            stmt.setString(3, type.name());
+            stmt.setDouble(4, amount);
+            stmt.setString(5, description);
+            stmt.setLong(6, System.currentTimeMillis());
+            
+            stmt.executeUpdate();
+            
+            // 更新国家余额
+            updateNationBalance(nation);
+            
+        } catch (SQLException e) {
+            plugin.getLogger().severe("记录交易失败: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void updateNationBalance(Nation nation) {
+        try (Connection conn = plugin.getDatabaseManager().getConnection()) {
+            PreparedStatement stmt = conn.prepareStatement(
+                "UPDATE " + plugin.getDatabaseManager().getTablePrefix() + 
+                "nations SET balance = ? WHERE id = ?"
+            );
+            
+            stmt.setDouble(1, nation.getBalance());
+            stmt.setLong(2, nation.getId());
+            stmt.executeUpdate();
+            
+        } catch (SQLException e) {
+            plugin.getLogger().severe("更新国家余额失败: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 } 

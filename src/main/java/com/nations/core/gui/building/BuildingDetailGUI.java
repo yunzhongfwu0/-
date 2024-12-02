@@ -30,7 +30,7 @@ public class BuildingDetailGUI extends BaseGUI {
     private final Building building;
     
     public BuildingDetailGUI(NationsCore plugin, Player player, Nation nation, Building building) {
-        super(plugin, player, "§6建筑详情 - " + building.getType().getDisplayName(), 3);
+        super(plugin, player, "§6建筑详情", 5);
         this.nation = nation;
         this.building = building;
         initialize();
@@ -39,84 +39,54 @@ public class BuildingDetailGUI extends BaseGUI {
     private void initialize() {
         fillBorder(Material.GRAY_STAINED_GLASS_PANE);
         
-        // 建筑信息
-        setItem(11, createBuildingInfoItem(), null);
+        // 建筑基本信息
+        setItem(13, createBuildingInfoItem(), null);
         
-        // 升级按钮
-        if (building.getLevel() < 5) {
-            setItem(13, createUpgradeItem(), p -> handleUpgrade());
-        }
-        
-        // 传送按钮
-        Location location = building.getBaseLocation();
-        if (location != null && location.getWorld() != null) {
-            setItem(15, createItem(Material.ENDER_PEARL,
-                "§6传送到建筑",
-                "§7点击传送到该建筑"
-            ), p -> {
-                p.closeInventory();
-                // 再次调用 getBaseLocation() 确保位置是最新的
-                Location teleportLoc = building.getBaseLocation();
-                if (teleportLoc != null && teleportLoc.getWorld() != null) {
-                    // 找到安全的传送位置
-                    Location safeLocation = findSafeLocation(teleportLoc);
-                    if (safeLocation != null) {
-                        p.teleport(safeLocation);
-                        p.sendMessage(MessageUtil.success("已传送到建筑位置"));
-                    } else {
-                        p.sendMessage(MessageUtil.error("无法找到安全的传送位置"));
-                    }
-                } else {
-                    p.sendMessage(MessageUtil.error("目标世界未加载，无法传送"));
-                }
-            });
-        } else {
-            // 如果位置无效，显示一个禁用的按钮
-            setItem(15, createItem(Material.BARRIER,
-                "§c无法传送",
-                "§7建筑位置无效或世界未加载",
-                "§7世界名称: §f" + building.getWorldName()
-            ), null);
-        }
-        
-        // 边界显示切换按钮
-        setItem(16, createBorderToggleItem(), p -> {
-            if (BuildingBorderUtil.isBorderVisible(building)) {
-                BuildingBorderUtil.removeBuildingBorder(building);
-                p.sendMessage(MessageUtil.info("已关闭建筑边界显示"));
-            } else {
-                BuildingBorderUtil.showBuildingBorder(building);
-                p.sendMessage(MessageUtil.info("已开启建筑边界显示"));
-            }
-            // 刷新界面
-            initialize();
-        });
-        
-        // 拆除按钮
-        setItem(22, createItem(Material.TNT,
-            "§c拆除建筑",
-            "§7点击拆除并返还部分资源",
+        // 工人管理按钮
+        setItem(29, createItem(Material.PLAYER_HEAD,
+            "§6工人管理",
+            "§7当前工人: §f" + plugin.getNPCManager().getBuildingWorkers(building).size() + "/" + 
+                building.getType().getWorkerSlots().values().stream().mapToInt(Integer::intValue).sum(),
             "",
-            "§c警告: 此操作不可撤销！"
-        ), p -> new ConfirmGUI(plugin, p,
-            "§c确认拆除建筑",
-            "§c确认拆除",
-            new String[]{
-                "§7你确定要拆除这个建筑吗？",
-                "§7将返还部分建造资源",
-                "",
-                "§c此操作不可撤销！"
-            },
-            confirm -> {
-                if (plugin.getBuildingManager().demolishBuilding(nation, building)) {
-                    confirm.sendMessage(MessageUtil.success("成功拆除建筑"));
-                    new BuildingMainGUI(plugin, confirm, nation).open();
-                } else {
-                    confirm.sendMessage(MessageUtil.error("拆除失败！"));
-                }
-            },
-            cancel -> new BuildingDetailGUI(plugin, cancel, nation, building).open()
-        ).open());
+            "§7- 雇佣新工人",
+            "§7- 管理现有工人",
+            "§7- 查看工作状态",
+            "",
+            "§e点击管理工人"
+        ), p -> new WorkerManageGUI(plugin, p, building).open());
+        
+        // 建筑互动按钮
+        setItem(31, createItem(Material.CRAFTING_TABLE,
+            "§6建筑互动",
+            "§7- 设置自动化",
+            "§7- 选择作物类型",
+            "§7- 查看生产状态",
+            "",
+            "§e点击进行互动"
+        ), p -> new BuildingInteractGUI(plugin, p, building).open());
+        
+        // 建筑升级按钮
+        if (building.getLevel() < 5) {
+            setItem(33, createUpgradeItem(), p -> handleUpgrade(p));
+        }
+        
+        // 建筑拆除按钮
+        setItem(44, createItem(Material.TNT,
+            "§c拆除建筑",
+            "§7- 将返还部分资源",
+            "§7- 工人将被解雇",
+            "§7- 所有数据将被清除",
+            "",
+            "§c警告: 此操作不可撤销！",
+            "",
+            "§e点击拆除"
+        ), this::handleDemolish);
+        
+        // 返回按钮
+        setItem(40, createItem(Material.ARROW,
+            "§f返回",
+            "§7点击返回"
+        ), p -> new BuildingMainGUI(plugin, p, nation).open());
     }
     
     private ItemStack createBuildingInfoItem() {
@@ -124,31 +94,72 @@ public class BuildingDetailGUI extends BaseGUI {
         lore.add("§7类型: §f" + building.getType().getDisplayName());
         lore.add("§7等级: §f" + building.getLevel());
         lore.add("");
-        lore.add("§7加成效果:");
+        lore.add("§7效果:");
         building.getBonuses().forEach((key, value) -> 
-            lore.add("§7- " + formatBonus(key, value)));
+            lore.add("§7- " + formatBonus(key, value))
+        );
+        lore.add("");
+        lore.add("§7工人:");
+        building.getType().getWorkerSlots().forEach((type, count) -> 
+            lore.add("§7- " + type.getDisplayName() + ": §f" + 
+                plugin.getNPCManager().getBuildingWorkers(building).stream()
+                    .filter(npc -> npc.getType() == type)
+                    .count() + "/" + count)
+        );
         
-        return createItem(getBuildingMaterial(building.getType()),
-            "§6建筑信息",
+        return createItem(building.getType().getIcon(),
+            "§6" + building.getType().getDisplayName(),
             lore.toArray(new String[0]));
     }
     
     private ItemStack createUpgradeItem() {
+        int nextLevel = building.getLevel() + 1;
         List<String> lore = new ArrayList<>();
         lore.add("§7当前等级: §f" + building.getLevel());
-        lore.add("§7升级费用:");
-        Map<Material, Integer> costs = building.getType().getBuildCosts();
-        costs.forEach((material, amount) -> {
-            int upgradeCost = (int)(amount * (1 + building.getLevel() * 0.5));
-            lore.add("§7- " + ItemNameUtil.getName(material) + ": §f" + upgradeCost);
-        });
+        lore.add("§7下一等级: §f" + nextLevel);
+        lore.add("");
+        lore.add("§7升级需要:");
+        // 添加升级所需资源...
+        lore.add("");
+        lore.add("§7升级后效果:");
+        // 添加升级后的效果...
+        lore.add("");
+        lore.add("§e点击升级");
         
         return createItem(Material.EXPERIENCE_BOTTLE,
             "§6升级建筑",
             lore.toArray(new String[0]));
     }
     
-    private String formatBonus(String key, double value) {
+    private void handleDemolish(Player player) {
+        new ConfirmGUI(plugin, player,
+            "确认拆除",
+            "拆除建筑",
+            new String[]{
+                "§c此操作不可撤销！",
+                "§7将返还以下资源:",
+                "§7- 50% 建造材料",
+                "",
+                "§7同时会:",
+                "§7- 解雇所有工人",
+                "§7- 清除所有数据"
+            },
+            this::demolishBuilding,
+            p -> new BuildingDetailGUI(plugin, p, nation, building).open()
+        ).open();
+    }
+    
+    private void demolishBuilding(Player player) {
+        if (plugin.getBuildingManager().demolishBuilding(nation, building)) {
+            player.sendMessage(MessageUtil.success("成功拆除建筑！"));
+            new BuildingMainGUI(plugin, player, nation).open();
+        } else {
+            player.sendMessage(MessageUtil.error("拆除建筑失败！"));
+            new BuildingDetailGUI(plugin, player, nation, building).open();
+        }
+    }
+    
+    private String formatBonus(String key, Double value) {
         return switch (key) {
             case "tax_rate" -> String.format("税收加成: +%.1f%%", value * 100);
             case "max_members" -> String.format("成员上限: +%.0f", value);
@@ -162,236 +173,74 @@ public class BuildingDetailGUI extends BaseGUI {
         };
     }
     
-    private void handleUpgrade() {
-        Map<Material, Integer> costs = building.getType().getBuildCosts();
-        boolean hasAll = true;
-        StringBuilder message = new StringBuilder("§c升级失败！资源不足：\n");
+    private void handleUpgrade(Player player) {
+        int nextLevel = building.getLevel() + 1;
         
-        // 检查金币
-        double money = plugin.getConfigManager().getUpgradeMoney(building.getLevel() + 1);
-        if (!plugin.getVaultEconomy().has(player, money)) {
-            hasAll = false;
-            message.append("§7- 金币: §f需要 ").append(money)
-                   .append("，拥有 ").append(plugin.getVaultEconomy().getBalance(player)).append("\n");
-        }
-        
-        // 检查物品
-        for (Map.Entry<Material, Integer> cost : costs.entrySet()) {
-            Material material = cost.getKey();
-            int required = (int)(cost.getValue() * (1 + building.getLevel() * 0.5));
-            int has = countPlayerItems(player, material);
-            
-            if (has < required) {
-                hasAll = false;
-                message.append(MessageUtil.formatResourceRequirement(material, required, has)).append("\n");
-            }
-        }
-        
-        if (!hasAll) {
-            player.sendMessage(message.toString());
+        // 检查升级条件
+        if (!canUpgrade()) {
+            player.sendMessage(MessageUtil.error("不满足升级条件！"));
             return;
         }
         
-        // 扣除资源
-        costs.forEach((material, amount) -> 
-            removeItems(player, material, amount));
-        
-        // 扣除金币
-        plugin.getVaultEconomy().withdrawPlayer(player, money);
-        
-        // 计算新的建筑大小
-        int newSize = calculateBuildingSize(building.getType(), building.getLevel() + 1);
-        
-        // 检查新大小是否会与其他建筑重叠
-        if (!checkBuildingSpace(building, newSize)) {
-            player.sendMessage(MessageUtil.error("升级失败！新的建筑大小会与其他建筑重叠"));
-            // 返还资源
-            costs.forEach((material, amount) -> 
-                player.getInventory().addItem(new ItemStack(material, amount)));
-            plugin.getVaultEconomy().depositPlayer(player, money);
-            return;
-        }
-        
-        // 升级建筑
-        building.setLevel(building.getLevel() + 1);
-        building.setSize(newSize);
-        
-        // 更新建筑外观
-        updateBuildingStructure(building);
-        
-        // 更新全息显示
-        HologramUtil.removeBuildingHologram(building.getBaseLocation());
-        HologramUtil.createBuildingHologram(building);
-        
-        // 显示新的建筑边界
-        BuildingBorderUtil.showBuildingBorder(building);
-        
-        // 保存到数据库
-        plugin.getBuildingManager().saveBuilding(building);
-        
-        // 发送成功消息
-        player.sendMessage(MessageUtil.success("成功将建筑升级到 " + building.getLevel() + " 级！"));
-        
-        // 刷新界面
-        initialize();
+        // 显示确认界面
+        new ConfirmGUI(plugin, player,
+            "确认升级",
+            "升级建筑",
+            new String[]{
+                "§7升级到 " + nextLevel + " 级需要:",
+                "§7- " + getUpgradeCost() + " 金币",
+                "",
+                "§7升级后效果:",
+                "§7- 工作效率提升 10%",
+                "§7- 工人上限 +1",
+                "§7- 特殊效果增强",
+                "",
+                "§e点击确认升级"
+            },
+            this::performUpgrade,
+            p -> new BuildingDetailGUI(plugin, p, nation, building).open()
+        ).open();
     }
     
-    private int countPlayerItems(Player player, Material material) {
-        int count = 0;
-        for (ItemStack item : player.getInventory().getContents()) {
-            if (item != null && item.getType() == material) {
-                count += item.getAmount();
-            }
-        }
-        return count;
-    }
-    
-    private void removeItems(Player player, Material material, int amount) {
-        ItemStack[] contents = player.getInventory().getContents();
-        int remaining = amount;
+    private boolean canUpgrade() {
+        int nextLevel = building.getLevel() + 1;
         
-        for (int i = 0; i < contents.length && remaining > 0; i++) {
-            ItemStack item = contents[i];
-            if (item != null && item.getType() == material) {
-                if (item.getAmount() <= remaining) {
-                    remaining -= item.getAmount();
-                    contents[i] = null;
-                } else {
-                    item.setAmount(item.getAmount() - remaining);
-                    remaining = 0;
-                }
-            }
+        // 检查最高等级
+        if (nextLevel > 5) {
+            return false;
         }
         
-        player.getInventory().setContents(contents);
-    }
-    
-    private Location findSafeLocation(Location base) {
-        World world = base.getWorld();
-        if (world == null) return null;
-        
-        // 从建筑中心位置向上找到第一个安全位置
-        Location safe = base.clone();
-        safe.setY(world.getHighestBlockYAt(safe));
-        safe.add(0, 1, 0); // 确保站在方块上面
-        
-        // 确保脚下和头部都是空气
-        Block feet = safe.getBlock();
-        Block head = safe.clone().add(0, 1, 0).getBlock();
-        
-        if (feet.getType().isAir() && head.getType().isAir()) {
-            return safe;
+        // 检查国家等级要求
+        if (nation.getLevel() < nextLevel) {
+            return false;
         }
         
-        // 如果当前位置不安全，尝试周围的位置
-        for (int x = -1; x <= 1; x++) {
-            for (int z = -1; z <= 1; z++) {
-                Location check = base.clone().add(x, 0, z);
-                check.setY(world.getHighestBlockYAt(check));
-                check.add(0, 1, 0);
-                
-                feet = check.getBlock();
-                head = check.clone().add(0, 1, 0).getBlock();
-                
-                if (feet.getType().isAir() && head.getType().isAir()) {
-                    return check;
-                }
-            }
-        }
-        
-        return null;
-    }
-    
-    private int calculateBuildingSize(BuildingType type, int level) {
-        return switch (type) {
-            case TOWN_HALL -> 5 + level;     // 市政厅随等级增长较快
-            case BARRACKS -> 3 + level;      // 兵营适中增长
-            case MARKET -> 4 + level;        // 市场适中增长
-            case WAREHOUSE -> 3 + level;     // 仓库适中增长
-            case FARM -> 5 + level;          // 农场随等级增长较快
-        };
-    }
-    
-    private boolean checkBuildingSpace(Building building, int newSize) {
-        Location center = building.getBaseLocation();
-        if (center == null) return false;
-        
-        int halfSize = newSize / 2;
-        
-        // 获取该国家的所有其他建筑
-        for (Building other : nation.getBuildings()) {
-            if (other.getId() == building.getId()) continue;
-            
-            Location otherCenter = other.getBaseLocation();
-            if (otherCenter == null) continue;
-            
-            int otherHalfSize = other.getSize() / 2;
-            
-            // 检查两个建筑的边界是否重叠（保留2格间距）
-            if (Math.abs(center.getBlockX() - otherCenter.getBlockX()) <= (halfSize + otherHalfSize + 2) && 
-                Math.abs(center.getBlockZ() - otherCenter.getBlockZ()) <= (halfSize + otherHalfSize + 2)) {
-                return false;
-            }
+        // 检查资金
+        if (nation.getBalance() < getUpgradeCost()) {
+            return false;
         }
         
         return true;
     }
     
-    private void updateBuildingStructure(Building building) {
-        Location loc = building.getBaseLocation();
-        if (loc == null || loc.getWorld() == null) return;
-        
-        // 先清除旧的建筑结构
-        int oldHalfSize = building.getSize() / 2;
-        for (int x = -oldHalfSize; x <= oldHalfSize; x++) {
-            for (int z = -oldHalfSize; z <= oldHalfSize; z++) {
-                for (int y = 0; y < 10; y++) { // 假设建筑最高10格
-                    loc.clone().add(x, y, z).getBlock().setType(Material.AIR);
-                }
-            }
-        }
-        
-        // 放置新的建筑结构
-        building.getType().placeStructure(loc);
-        
-        // 添加升级特效
-        new BukkitRunnable() {
-            double angle = 0;
-            int ticks = 0;
-            
-            @Override
-            public void run() {
-                if (ticks++ >= 40) {
-                    cancel();
-                    return;
-                }
-                
-                angle += Math.PI / 8;
-                double radius = building.getSize() / 2.0;
-                
-                for (double i = 0; i < Math.PI * 2; i += Math.PI / 16) {
-                    double x = Math.cos(i + angle) * radius;
-                    double z = Math.sin(i + angle) * radius;
-                    Location particleLoc = loc.clone().add(x, 0.5, z);
-                    loc.getWorld().spawnParticle(Particle.END_ROD, particleLoc, 1, 0, 0, 0, 0);
-                    loc.getWorld().spawnParticle(Particle.TOTEM, particleLoc, 1, 0, 0, 0, 0);
-                }
-            }
-        }.runTaskTimer(plugin, 0L, 1L);
+    private double getUpgradeCost() {
+        return 5000 * Math.pow(2, building.getLevel());
     }
     
-    private ItemStack createBorderToggleItem() {
-        boolean isVisible = BuildingBorderUtil.isBorderVisible(building);
+    private void performUpgrade(Player player) {
+        double cost = getUpgradeCost();
         
-        List<String> lore = new ArrayList<>();
-        lore.add("§7当前状态: " + (isVisible ? "§a显示" : "§c隐藏"));
-        lore.add("");
-        lore.add("§7点击切换边界显示状态");
+        // 扣除费用
+        nation.withdraw(cost);
         
-        return createItem(
-            isVisible ? Material.BARRIER : Material.END_ROD,
-            isVisible ? "§c关闭边界显示" : "§a显示建筑边界",
-            lore.toArray(new String[0])
-        );
+        // 升级建筑
+        building.setLevel(building.getLevel() + 1);
+        plugin.getBuildingManager().saveBuilding(building);
+        
+        // 发送消息
+        player.sendMessage(MessageUtil.success("成功将建筑升级到 " + building.getLevel() + " 级！"));
+        
+        // 刷新界面
+        new BuildingDetailGUI(plugin, player, nation, building).open();
     }
 } 

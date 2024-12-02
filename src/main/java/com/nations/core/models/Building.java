@@ -27,6 +27,8 @@ public class Building {
     private int x, y, z;
     private int size;
     private Map<String, Double> bonuses;
+    private final Nation nation;
+    private final Map<String, Double> efficiencyBonuses = new HashMap<>();
     
     public Building(long id, long nationId, BuildingType type, int level, 
                    Location location, int size) {
@@ -35,6 +37,7 @@ public class Building {
         this.type = type;
         this.level = level;
         this.size = size;
+        this.nation = NationsCore.getInstance().getNationManager().getNationById(nationId);
         
         // 保存世界名称和坐标
         if (location != null) {
@@ -141,5 +144,46 @@ public class Building {
                baseLocation.getWorld() != null && 
                level > 0 && 
                size > 0;
+    }
+
+    public BuildingType getType() {
+        return type;
+    }
+
+    public int getLevel() {
+        return level;
+    }
+
+    public long getId() {
+        return id;
+    }
+
+    public Nation getNation() {
+        return nation;
+    }
+
+    public Map<String, Double> getBonuses() {
+        return bonuses;
+    }
+
+    public int getSize() {
+        return size;
+    }
+
+    public void setLevel(int level) { this.level = level; }
+    public long getNationId() { return nation.getId(); }
+
+    public void addEfficiencyBonus(String source, double bonus) {
+        efficiencyBonuses.put(source, bonus);
+    }
+
+    public void removeEfficiencyBonus(String source) {
+        efficiencyBonuses.remove(source);
+    }
+
+    public double getTotalEfficiencyBonus() {
+        return 1.0 + efficiencyBonuses.values().stream()
+            .mapToDouble(Double::doubleValue)
+            .sum();
     }
 } 

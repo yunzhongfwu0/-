@@ -5,10 +5,12 @@ import org.bukkit.Location;
 import org.bukkit.World;
 
 import com.nations.core.NationsCore;
+import com.nations.core.models.Transaction.TransactionType;
 
 import java.util.*;
 
 public class Nation {
+    private final NationsCore plugin;
     private final long id;
     private String name;
     private UUID ownerUUID;
@@ -30,6 +32,7 @@ public class Nation {
     
     public Nation(long id, String name, UUID ownerUUID, int level, double balance,
                  String serverId, int serverPort, boolean isLocalServer) {
+        this.plugin = NationsCore.getInstance();
         this.id = id;
         this.name = name;
         this.ownerUUID = ownerUUID;
@@ -174,11 +177,11 @@ public class Nation {
     public Location getSpawnPoint() {
         // 如果传送点为空但有世界名称和坐标，尝试重新加载
         if (spawnPoint == null && spawnWorldName != null && hasSpawnCoordinates) {
-            spawnPoint = NationsCore.getInstance().getWorldManager()
+            spawnPoint = plugin.getWorldManager()
                 .createLocation(spawnWorldName, spawnX, spawnY, spawnZ, spawnYaw, spawnPitch);
             
             if (spawnPoint != null) {
-                NationsCore.getInstance().getLogger().info(
+                plugin.getLogger().info(
                     "已为国家 " + name + " 重新加载传送点: " + 
                     String.format("%.1f, %.1f, %.1f in %s", spawnX, spawnY, spawnZ, spawnWorldName)
                 );
@@ -204,7 +207,7 @@ public class Nation {
      * 检查传送点是否有效
      */
     public boolean isSpawnPointValid() {
-        return NationsCore.getInstance().getWorldManager()
+        return plugin.getWorldManager()
             .isLocationValid(getSpawnPoint());
     }
     
@@ -214,7 +217,7 @@ public class Nation {
     public boolean fixSpawnPoint() {
         if (!hasSpawnCoordinates || spawnWorldName == null) return false;
         
-        Location fixed = NationsCore.getInstance().getWorldManager()
+        Location fixed = plugin.getWorldManager()
             .createLocation(spawnWorldName, spawnX, spawnY, spawnZ, spawnYaw, spawnPitch);
         
         if (fixed != null) {
@@ -326,5 +329,17 @@ public class Nation {
     
     public int getCurrentMembers() {
         return members.size() + 1; // +1 是因为包括国主
+    }
+    
+    public void withdraw(double amount) {
+        this.balance -= amount;
+        // 记录交易
+        plugin.getNationManager().recordTransaction(this, null, TransactionType.WITHDRAW, amount, "支出");
+    }
+    
+    public void deposit(double amount) {
+        this.balance += amount;
+        // 记录交易
+        plugin.getNationManager().recordTransaction(this, null, TransactionType.DEPOSIT, amount, "工人解雇返还");
     }
 } 

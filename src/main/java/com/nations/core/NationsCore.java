@@ -16,6 +16,9 @@ import com.nations.core.hooks.NationsPlaceholder;
 import com.nations.core.managers.BuildingManager;
 import com.nations.core.managers.WorldManager;
 import com.nations.core.utils.ItemNameUtil;
+import com.nations.core.managers.NPCManager;
+import com.nations.core.listeners.CitizensLoadListener;
+import com.nations.core.listeners.NPCInteractListener;
 
 import lombok.Getter;
 import net.milkbowl.vault.economy.Economy;
@@ -23,21 +26,17 @@ import org.bukkit.Bukkit;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
+@Getter
 public class NationsCore extends JavaPlugin {
     
-    @Getter
     private static NationsCore instance;
-    @Getter
     private ConfigManager configManager;
-    @Getter
     private DatabaseManager databaseManager;
-    @Getter
     private NationManager nationManager;
-    @Getter
     private Economy economy;
     private BuildingManager buildingManager;
-    @Getter
     private WorldManager worldManager;
+    private NPCManager npcManager;
 
     @Override
     public void onEnable() {
@@ -48,7 +47,7 @@ public class NationsCore extends JavaPlugin {
         
         // 保存默认配置文件
         saveDefaultConfig();
-        saveResource("zh_cn.json", false);  // 只保存语言文件
+        saveResource("zh_cn.json", false);
         
         // 初始化配置文件
         this.configManager = new ConfigManager(this);
@@ -69,12 +68,13 @@ public class NationsCore extends JavaPlugin {
             return;
         }
         
-        // 初始化世界管理器（移到前面）
+        // 初始化世界管理器
         this.worldManager = new WorldManager(this);
         
         // 初始化其他管理器
         this.nationManager = new NationManager(this);
         this.buildingManager = new BuildingManager(this);
+        this.npcManager = new NPCManager(this);
         
         // 初始化任务管理器
         TaskManager.init(this);
@@ -90,16 +90,25 @@ public class NationsCore extends JavaPlugin {
         registerListeners();
         
         // 注册 PlaceholderAPI 扩展
-        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
+        if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
             new NationsPlaceholder(this).register();
             getLogger().info("PlaceholderAPI 扩展已注册！");
         }
+        
+        // 注册Citizens加载监听器
+        getServer().getPluginManager().registerEvents(
+            new CitizensLoadListener(this), 
+            this
+        );
         
         getLogger().info("国家系统插件已成功启动！");
     }
 
     @Override
     public void onDisable() {
+        if (npcManager != null) {
+            npcManager.onDisable();
+        }
         // 关闭任务管理器
         TaskManager.shutdown();
         
@@ -123,6 +132,7 @@ public class NationsCore extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new GUIListener(), this);
         getServer().getPluginManager().registerEvents(new TerritoryProtectionListener(this), this);
         getServer().getPluginManager().registerEvents(new ChatInputListener(), this);
+        getServer().getPluginManager().registerEvents(new NPCInteractListener(this), this);
     }
 
     private boolean setupEconomy() {
@@ -137,8 +147,35 @@ public class NationsCore extends JavaPlugin {
         return economy != null;
     }
 
+    public static NationsCore getInstance() {
+        return instance;
+    }
+
+    /**
+     * 获取 Vault 经济实例
+     */
     public Economy getVaultEconomy() {
         return economy;
+    }
+
+    public NPCManager getNPCManager() {
+        return npcManager;
+    }
+
+    public DatabaseManager getDatabaseManager() {
+        return databaseManager;
+    }
+
+    public ConfigManager getConfigManager() {
+        return configManager;
+    }
+
+    public NationManager getNationManager() {
+        return nationManager;
+    }
+
+    public WorldManager getWorldManager() {
+        return worldManager;
     }
 
     public BuildingManager getBuildingManager() {
