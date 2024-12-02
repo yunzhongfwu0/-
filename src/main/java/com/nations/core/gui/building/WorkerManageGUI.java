@@ -4,6 +4,7 @@ import com.nations.core.NationsCore;
 import com.nations.core.gui.BaseGUI;
 import com.nations.core.models.Building;
 import com.nations.core.models.NationNPC;
+import com.nations.core.models.Transaction.TransactionType;
 import com.nations.core.models.NPCType;
 import com.nations.core.models.WorkState;
 import com.nations.core.utils.MessageUtil;
@@ -122,15 +123,24 @@ public class WorkerManageGUI extends BaseGUI {
     
     private void handleHire(NPCType type) {
         // 检查资金
-        if (building.getNation().getBalance() >= type.getBaseSalary() * 2) {
-            building.getNation().withdraw(type.getBaseSalary() * 2);
+        double cost = type.getBaseSalary() * 2;
+        if (building.getNation().getBalance() >= cost) {
+            building.getNation().withdraw(cost);
+            // 记录交易
+            plugin.getNationManager().recordTransaction(
+                building.getNation(),
+                null,
+                TransactionType.WITHDRAW,
+                cost,
+                "雇佣工人: " + type.getDisplayName()
+            );
             NationNPC npc = plugin.getNPCManager().createNPC(type, building);
             if (npc != null) {
                 player.sendMessage(MessageUtil.success("成功雇佣 " + type.getDisplayName()));
                 initialize(); // 刷新界面
             }
         } else {
-            player.sendMessage(MessageUtil.error("资金不足！需要 " + (type.getBaseSalary() * 2) + " 金币"));
+            player.sendMessage(MessageUtil.error("资金不足！需要 " + cost + " 金币"));
         }
     }
 } 

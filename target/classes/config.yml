@@ -74,6 +74,85 @@ nations:
           NETHERITE_INGOT: 8
       max-buildings: 12
 
+# NPC技能配置
+npc:
+  skills:
+    # 农民技能
+    EFFICIENT_FARMING:
+      unlock_cost: 1000.0
+      description: "提高作物生长速度"
+      max_level: 10
+      effectiveness_per_level: 0.1  # 每级增加10%效果
+    
+    HARVEST_MASTER:
+      unlock_cost: 1500.0
+      description: "增加作物产量"
+      max_level: 10
+      effectiveness_per_level: 0.08  # 每级增加8%产量
+    
+    CROP_EXPERT:
+      unlock_cost: 2000.0
+      description: "提高稀有作物产出概率"
+      max_level: 10
+      effectiveness_per_level: 0.05  # 每级增加5%概率
+    
+    # 守卫技能
+    COMBAT_MASTERY:
+      unlock_cost: 2000.0
+      description: "提高攻击力"
+      max_level: 10
+      effectiveness_per_level: 0.1  # 每级增加10%攻击力
+    
+    DEFENSIVE_STANCE:
+      unlock_cost: 1500.0
+      description: "提高防御力"
+      max_level: 10
+      effectiveness_per_level: 0.12  # 每级增加12%防御力
+    
+    PATROL_EFFICIENCY:
+      unlock_cost: 1000.0
+      description: "提高巡逻范围和效率"
+      max_level: 10
+      effectiveness_per_level: 0.15  # 每级增加15%范围
+
+    # 商人技能
+    BARGAINING:
+      unlock_cost: 1500.0
+      description: "提高交易获得的金币"
+      max_level: 10
+      effectiveness_per_level: 0.1  # 每级增加10%金币
+    
+    MARKET_INSIGHT:
+      unlock_cost: 2000.0
+      description: "解锁更多交易选项"
+      max_level: 10
+      effectiveness_per_level: 0.1  # 每级增加一个交易选项
+    
+    TRADE_NETWORK:
+      unlock_cost: 1800.0
+      description: "提高交易频率"
+      max_level: 10
+      effectiveness_per_level: 0.08  # 每级增加8%频率
+
+    # 管理者技能
+    LEADERSHIP:
+      unlock_cost: 2000.0
+      description: "提高其他NPC的工作效率"
+      max_level: 10
+      effectiveness_per_level: 0.1  # 每级增加10%效率
+    
+    RESOURCE_MANAGEMENT:
+      unlock_cost: 1500.0
+      description: "降低NPC维护成本"
+      max_level: 10
+      effectiveness_per_level: 0.08  # 每级降低8%成本
+    
+    CRISIS_HANDLING:
+      unlock_cost: 1800.0
+      description: "提高建筑防御和修复速度"
+      max_level: 10
+      effectiveness_per_level: 0.12  # 每级增加12%速度
+
 # GUI设置
 gui:
   # 边框颜色

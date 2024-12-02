@@ -19,6 +19,7 @@ import com.nations.core.utils.ItemNameUtil;
 import com.nations.core.managers.NPCManager;
 import com.nations.core.listeners.CitizensLoadListener;
 import com.nations.core.listeners.NPCInteractListener;
+import com.nations.core.managers.NPCSkillManager;
 
 import lombok.Getter;
 import net.milkbowl.vault.economy.Economy;
@@ -37,6 +38,7 @@ public class NationsCore extends JavaPlugin {
     private BuildingManager buildingManager;
     private WorldManager worldManager;
     private NPCManager npcManager;
+    private NPCSkillManager npcSkillManager;
 
     @Override
     public void onEnable() {
@@ -75,6 +77,9 @@ public class NationsCore extends JavaPlugin {
         this.nationManager = new NationManager(this);
         this.buildingManager = new BuildingManager(this);
         this.npcManager = new NPCManager(this);
+        this.npcSkillManager = new NPCSkillManager(this);
+        this.npcSkillManager.createTables();
+        this.npcSkillManager.loadSkills();
         
         // 初始化任务管理器
         TaskManager.init(this);
@@ -180,5 +185,9 @@ public class NationsCore extends JavaPlugin {
 
     public BuildingManager getBuildingManager() {
         return buildingManager;
+    }
+
+    public NPCSkillManager getNPCSkillManager() {
+        return npcSkillManager;
     }
 } 

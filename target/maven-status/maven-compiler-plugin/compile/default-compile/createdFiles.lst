@@ -4,6 +4,7 @@ com\nations\core\npc\NPCBehavior.class
 com\nations\core\utils\ChatInputManager$3.class
 com\nations\core\gui\building\BuildingInteractGUI.class
 com\nations\core\gui\MemberManageAdminGUI.class
+com\nations\core\npc\behaviors\FarmerBehavior$1.class
 com\nations\core\gui\TerritoryManageGUI.class
 com\nations\core\utils\ParticleEffects$3.class
 com\nations\core\gui\MemberManageGUI.class
@@ -18,6 +19,7 @@ com\nations\core\gui\EconomyGUI.class
 com\nations\core\utils\FeedbackManager.class
 com\nations\core\models\BuildingType$3.class
 com\nations\core\gui\RankSelectGUI.class
+com\nations\core\models\NPCSkill.class
 com\nations\core\NationsCore.class
 com\nations\core\models\BuildingType.class
 com\nations\core\gui\StatisticsGUI.class
@@ -37,6 +39,7 @@ com\nations\core\models\BuildingType$1.class
 com\nations\core\utils\TaskManager.class
 com\nations\core\utils\GuiEffects$2.class
 com\nations\core\models\BuildingFunction.class
+com\nations\core\gui\NPCSkillGUI$1.class
 com\nations\core\utils\ItemNameUtil.class
 com\nations\core\models\Building$1.class
 com\nations\core\models\BuildingFunction$1$1.class
@@ -44,6 +47,7 @@ com\nations\core\gui\MaterialSelectorGUI.class
 com\nations\core\gui\UpgradeCostSelectGUI.class
 com\nations\core\utils\ChatInputManager$1$1.class
 com\nations\core\managers\NPCManager.class
+com\nations\core\gui\NPCManageGUI.class
 com\nations\core\gui\TerritoryExpandGUI.class
 com\nations\core\models\NPCType.class
 com\nations\core\gui\NationInfoGUI.class
@@ -67,6 +71,7 @@ com\nations\core\gui\SystemSettingsGUI.class
 com\nations\core\utils\BuildingBorderUtil$1.class
 com\nations\core\models\Territory$1.class
 com\nations\core\gui\player\RequestManageGUI.class
+com\nations\core\models\NPCSkill$1.class
 com\nations\core\utils\TerritoryVisualizer.class
 com\nations\core\gui\building\CropSelectGUI.class
 com\nations\core\gui\building\BuildingDetailGUI.class
@@ -86,6 +91,7 @@ com\nations\core\npc\behaviors\ManagerBehavior.class
 com\nations\core\cache\CacheManager.class
 com\nations\core\gui\TransferGUI.class
 com\nations\core\gui\AdminHelpGUI.class
+com\nations\core\models\NPCSkillData.class
 com\nations\core\utils\ChatInputManager$2.class
 com\nations\core\listeners\NPCInteractListener.class
 com\nations\core\models\BuildingType$4.class
@@ -114,8 +120,10 @@ com\nations\core\gui\SettingsGUI.class
 com\nations\core\managers\BuildingManager$2.class
 com\nations\core\utils\ParticleEffects$1.class
 com\nations\core\utils\ParticleEffects.class
+com\nations\core\gui\NPCSkillGUI.class
 com\nations\core\managers\DatabaseManager.class
 com\nations\core\models\BuildingFunction$3.class
+com\nations\core\managers\NPCSkillManager.class
 com\nations\core\models\Territory.class
 com\nations\core\models\Building.class
 com\nations\core\managers\NPCManager$2.class

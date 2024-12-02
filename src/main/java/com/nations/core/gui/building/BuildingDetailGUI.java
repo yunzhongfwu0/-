@@ -6,6 +6,7 @@ import com.nations.core.gui.ConfirmGUI;
 import com.nations.core.models.Building;
 import com.nations.core.models.BuildingType;
 import com.nations.core.models.Nation;
+import com.nations.core.models.Transaction.TransactionType;
 import com.nations.core.utils.ItemNameUtil;
 import com.nations.core.utils.MessageUtil;
 import com.nations.core.utils.HologramUtil;
@@ -233,6 +234,15 @@ public class BuildingDetailGUI extends BaseGUI {
         // 扣除费用
         nation.withdraw(cost);
         
+        // 记录交易
+        plugin.getNationManager().recordTransaction(
+            nation,
+            null,
+            TransactionType.WITHDRAW,
+            cost,
+            "升级建筑: " + building.getType().getDisplayName() + " 到 " + (building.getLevel() + 1) + " 级"
+        );
+        
         // 升级建筑
         building.setLevel(building.getLevel() + 1);
         plugin.getBuildingManager().saveBuilding(building);
@@ -243,4 +253,4 @@ public class BuildingDetailGUI extends BaseGUI {
         // 刷新界面
         new BuildingDetailGUI(plugin, player, nation, building).open();
     }
-} 
+}

@@ -3,6 +3,7 @@ package com.nations.core.managers;
 import com.nations.core.NationsCore;
 import com.nations.core.models.Building;
 import com.nations.core.models.NationNPC;
+import com.nations.core.models.Transaction.TransactionType;
 import com.nations.core.models.NPCType;
 import com.nations.core.models.WorkState;
 import com.nations.core.npc.NPCBehavior;
@@ -551,35 +552,27 @@ public class NPCManager {
       
     private void paySalaries() {
         for (NationNPC npc : npcs.values()) {
-            int salary = npc.getCurrentSalary();
-            // 从国库扣除工资
+            payWorkerSalary(npc);
+        }
+    }
+
+    private void payWorkerSalary(NationNPC npc) {
+        if (npc.getWorkplace() != null && npc.getWorkplace().getNation() != null) {
+            double salary = npc.getCurrentSalary();
             if (npc.getWorkplace().getNation().getBalance() >= salary) {
                 npc.getWorkplace().getNation().withdraw(salary);
+                // 记录交易
+                plugin.getNationManager().recordTransaction(
+                    npc.getWorkplace().getNation(),
+                    null,
+                    TransactionType.WITHDRAW,
+                    salary,
+                    "支付工人工资: " + npc.getCitizensNPC().getName()
+                );
                 npc.setHappiness(Math.min(100, npc.getHappiness() + 10));
-                
-                // 记录工资发放
-                recordSalaryPayment(npc, salary);
             } else {
                 npc.setHappiness(Math.max(0, npc.getHappiness() - 20));
             }
-        }
-    }
-    
-    private void recordSalaryPayment(NationNPC npc, int amount) {
-        try (Connection conn = plugin.getDatabaseManager().getConnection()) {
-            PreparedStatement stmt = conn.prepareStatement(
-                "INSERT INTO " + plugin.getDatabaseManager().getTablePrefix() + 
-                "npc_salary_records (npc_id, amount, pay_time) VALUES (?, ?, ?)"
-            );
-            
-            stmt.setLong(1, npc.getId());
-            stmt.setInt(2, amount);
-            stmt.setLong(3, System.currentTimeMillis());
-            stmt.executeUpdate();
-            
-        } catch (SQLException e) {
-            plugin.getLogger().severe("记录工资发放失败: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
@@ -902,5 +895,15 @@ public class NPCManager {
         }
         
         plugin.getLogger().info("NPC数据保存完成");
+    }
+
+    // 删除建筑相关的所有NPC
+    public void removeAllBuildingNPCs(Building building) {
+        Set<NationNPC> buildingWorkers = buildingNPCs.getOrDefault(building.getId(), new HashSet<>());
+        for (NationNPC npc : new HashSet<>(buildingWorkers)) {
+            dismissWorker(npc);
+        }
+        buildingNPCs.remove(building.getId());
+        plugin.getLogger().info("已删除建筑 " + building.getId() + " 的所有NPC");
     }
 }

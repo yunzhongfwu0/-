@@ -4,6 +4,7 @@ import com.nations.core.NationsCore;
 import com.nations.core.gui.BaseGUI;
 import com.nations.core.gui.ConfirmGUI;
 import com.nations.core.models.NationNPC;
+import com.nations.core.models.Transaction.TransactionType;
 import com.nations.core.models.WorkState;
 import com.nations.core.utils.MessageUtil;
 
@@ -84,8 +85,16 @@ public class WorkerDetailGUI extends BaseGUI {
     }
     
     private void performDismiss(Player player) {
-        // 返还一半雇佣费用
-        worker.getWorkplace().getNation().deposit(worker.getCurrentSalary());
+        double refund = worker.getCurrentSalary();
+        worker.getWorkplace().getNation().deposit(refund);
+        // 记录交易
+        plugin.getNationManager().recordTransaction(
+            worker.getWorkplace().getNation(),
+            null,
+            TransactionType.DEPOSIT,
+            refund,
+            "解雇工人返还: " + worker.getCitizensNPC().getName()
+        );
         
         // 解雇工人
         plugin.getNPCManager().dismissWorker(worker);

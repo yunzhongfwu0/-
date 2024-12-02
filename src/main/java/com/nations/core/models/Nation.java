@@ -331,6 +331,14 @@ public class Nation {
         return members.size() + 1; // +1 是因为包括国主
     }
     
+    public boolean withdrawMoney(double amount) {
+        if (balance >= amount) {
+            balance -= amount;
+            return true;
+        }
+        return false;
+    }
+    
     public void withdraw(double amount) {
         this.balance -= amount;
         // 记录交易

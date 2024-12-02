@@ -4,6 +4,7 @@ D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\TransferGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\utils\TerritoryVisualizer.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\npc\behaviors\TraderBehavior.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\HelpGUI.java
+D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\NPCSkillGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\EconomyManageGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\MemberListGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\utils\GuiEffects.java
@@ -19,6 +20,7 @@ D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\building\CropSelec
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\models\NationNPC.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\npc\behaviors\FarmerBehavior.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\npc\behaviors\ManagerBehavior.java
+D:\我的世界国家插件\Nation\src\main\java\com\nations\core\models\NPCSkill.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\SettingsGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\NationsCore.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\models\Building.java
@@ -50,6 +52,7 @@ D:\我的世界国家插件\Nation\src\main\java\com\nations\core\listeners\GUIListener.
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\CreateNationGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\utils\PerformanceMonitor.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\InviteGUI.java
+D:\我的世界国家插件\Nation\src\main\java\com\nations\core\managers\NPCSkillManager.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\models\NPCType.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\commands\NationCommand.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\managers\ConfigManager.java
@@ -61,6 +64,7 @@ D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\building\WorkerDet
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\managers\NationManager.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\utils\FeedbackManager.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\MemberManageAdminGUI.java
+D:\我的世界国家插件\Nation\src\main\java\com\nations\core\models\NPCSkillData.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\building\BuildingMainGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\listeners\CitizensLoadListener.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\player\RequestManageGUI.java
@@ -81,4 +85,5 @@ D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\TransactionLogGUI.
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\managers\WorldManager.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\utils\ItemNameUtil.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\TerritoryExpandGUI.java
+D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\NPCManageGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\NationInfoGUI.java

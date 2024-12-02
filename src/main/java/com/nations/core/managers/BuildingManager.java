@@ -357,6 +357,9 @@ public class BuildingManager {
                         // 移除边界显示
                         BuildingBorderUtil.removeBuildingBorder(building);
                         
+                        // 移除相关NPC
+                        plugin.getNPCManager().removeAllBuildingNPCs(building);
+                        
                         // 清除建筑结构
                         int halfSize = building.getSize() / 2;
                         for (int x = -halfSize; x <= halfSize; x++) {
@@ -435,4 +438,4 @@ public class BuildingManager {
     }
     
     // 其他方法...
-} 
+}

@@ -445,47 +445,33 @@ public class NationManager {
         return false;
     }
     
-    public boolean transferMoney(Nation from, Nation to, double amount) {
-        try (Connection conn = plugin.getDatabaseManager().getConnection()) {
-            conn.setAutoCommit(false);
-            try {
-                // 除发送方的金额
-                PreparedStatement deductStmt = conn.prepareStatement(
-                    "UPDATE " + plugin.getDatabaseManager().getTablePrefix() + 
-                    "nations SET balance = balance - ? WHERE id = ? AND balance >= ?"
-                );
-                deductStmt.setDouble(1, amount);
-                deductStmt.setLong(2, from.getId());
-                deductStmt.setDouble(3, amount);
-                
-                // 增加接收方的金额
-                PreparedStatement addStmt = conn.prepareStatement(
-                    "UPDATE " + plugin.getDatabaseManager().getTablePrefix() + 
-                    "nations SET balance = balance + ? WHERE id = ?"
-                );
-                addStmt.setDouble(1, amount);
-                addStmt.setLong(2, to.getId());
-                
-                if (deductStmt.executeUpdate() > 0 && addStmt.executeUpdate() > 0) {
-                    conn.commit();
-                    from.setBalance(from.getBalance() - amount);
-                    to.setBalance(to.getBalance() + amount);
-                    return true;
-                }
-                
-                conn.rollback();
-                return false;
-            } catch (SQLException e) {
-                conn.rollback();
-                throw e;
-            } finally {
-                conn.setAutoCommit(true);
-            }
-        } catch (SQLException e) {
-            plugin.getLogger().warning("转账失败: " + e.getMessage());
-            e.printStackTrace();
+    public boolean transferMoney(Nation from, Nation to, double amount, String description) {
+        if (from.getBalance() < amount) {
+            return false;
         }
-        return false;
+
+        from.withdraw(amount);
+        to.deposit(amount);
+        
+        // 记录转出方交易
+        recordTransaction(
+            from,
+            null,
+            TransactionType.WITHDRAW,
+            amount,
+            "转账给 " + to.getName() + ": " + description
+        );
+        
+        // 记录接收方交易
+        recordTransaction(
+            to,
+            null,
+            TransactionType.DEPOSIT,
+            amount,
+            "收到来自 " + from.getName() + " 的转账: " + description
+        );
+        
+        return true;
     }
     
     // 添加获取所有国家的方法
@@ -842,124 +828,52 @@ public class NationManager {
     }
     
     public boolean deposit(Nation nation, Player player, double amount) {
-        if (!plugin.getVaultEconomy().has(player, amount)) {
+        if (!nation.hasPermission(player.getUniqueId(), "nation.deposit")) {
+            player.sendMessage(MessageUtil.error("你没有向国库存款的权限！"));
             return false;
         }
-        
-        try (Connection conn = plugin.getDatabaseManager().getConnection()) {
-            conn.setAutoCommit(false);
-            try {
-                // 扣除玩家金钱
-                if (!plugin.getVaultEconomy().withdrawPlayer(player, amount).transactionSuccess()) {
-                    conn.rollback();
-                    return false;
-                }
-                
-                // 更新国库余额
-                PreparedStatement updateStmt = conn.prepareStatement(
-                    "UPDATE " + plugin.getDatabaseManager().getTablePrefix() + 
-                    "nations SET balance = balance + ? WHERE id = ?"
-                );
-                updateStmt.setDouble(1, amount);
-                updateStmt.setLong(2, nation.getId());
-                
-                if (updateStmt.executeUpdate() > 0) {
-                    // 记录交易
-                    PreparedStatement transStmt = conn.prepareStatement(
-                        "INSERT INTO " + plugin.getDatabaseManager().getTablePrefix() + 
-                        "transactions (nation_id, player_uuid, type, amount, description, timestamp) " +
-                        "VALUES (?, ?, ?, ?, ?, ?)"
-                    );
-                    
-                    transStmt.setLong(1, nation.getId());
-                    transStmt.setString(2, player.getUniqueId().toString());
-                    transStmt.setString(3, Transaction.TransactionType.DEPOSIT.name());
-                    transStmt.setDouble(4, amount);
-                    transStmt.setString(5, "玩家 " + player.getName() + " 向国库存入金钱");
-                    transStmt.setLong(6, System.currentTimeMillis());
-                    transStmt.executeUpdate();
-                    
-                    nation.setBalance(nation.getBalance() + amount);
-                    conn.commit();
-                    return true;
-                }
-                
-                conn.rollback();
-                return false;
-            } catch (SQLException e) {
-                conn.rollback();
-                throw e;
-            } finally {
-                conn.setAutoCommit(true);
-            }
-        } catch (SQLException e) {
-            plugin.getLogger().warning("存入金钱失败: " + e.getMessage());
-            e.printStackTrace();
+
+        if (amount <= 0) {
+            player.sendMessage(MessageUtil.error("存款金额必须大于0！"));
+            return false;
         }
-        return false;
+
+        if (!plugin.getVaultEconomy().has(player, amount)) {
+            player.sendMessage(MessageUtil.error("你的余额不足！"));
+            return false;
+        }
+
+        if (!plugin.getVaultEconomy().withdrawPlayer(player, amount).transactionSuccess()) {
+            player.sendMessage(MessageUtil.error("存款失败！"));
+            return false;
+        }
+
+        recordTransaction(nation, player.getUniqueId(), TransactionType.DEPOSIT, amount, "玩家存款");
+        return true;
     }
-    
+
     public boolean withdraw(Nation nation, Player player, double amount) {
         if (!nation.hasPermission(player.getUniqueId(), "nation.withdraw")) {
+            player.sendMessage(MessageUtil.error("你没有从国库取款的权限！"));
             return false;
         }
-        
+
+        if (amount <= 0) {
+            player.sendMessage(MessageUtil.error("取款金额必须大于0！"));
+            return false;
+        }
+
         if (nation.getBalance() < amount) {
+            player.sendMessage(MessageUtil.error("国库余额不足！"));
             return false;
         }
-        
-        try (Connection conn = plugin.getDatabaseManager().getConnection()) {
-            conn.setAutoCommit(false);
-            try {
-                // 更新国库余额
-                PreparedStatement updateStmt = conn.prepareStatement(
-                    "UPDATE " + plugin.getDatabaseManager().getTablePrefix() + 
-                    "nations SET balance = balance - ? WHERE id = ? AND balance >= ?"
-                );
-                updateStmt.setDouble(1, amount);
-                updateStmt.setLong(2, nation.getId());
-                updateStmt.setDouble(3, amount);
-                
-                if (updateStmt.executeUpdate() > 0) {
-                    // 给予玩家金钱
-                    if (!plugin.getVaultEconomy().depositPlayer(player, amount).transactionSuccess()) {
-                        conn.rollback();
-                        return false;
-                    }
-                    
-                    // 记录交易
-                    PreparedStatement transStmt = conn.prepareStatement(
-                        "INSERT INTO " + plugin.getDatabaseManager().getTablePrefix() + 
-                        "transactions (nation_id, player_uuid, type, amount, description, timestamp) " +
-                        "VALUES (?, ?, ?, ?, ?, ?)"
-                    );
-                    
-                    transStmt.setLong(1, nation.getId());
-                    transStmt.setString(2, player.getUniqueId().toString());
-                    transStmt.setString(3, Transaction.TransactionType.WITHDRAW.name());
-                    transStmt.setDouble(4, amount);
-                    transStmt.setString(5, "玩家 " + player.getName() + " 从国库取钱");
-                    transStmt.setLong(6, System.currentTimeMillis());
-                    transStmt.executeUpdate();
-                    
-                    nation.setBalance(nation.getBalance() - amount);
-                    conn.commit();
-                    return true;
-                }
-                
-                conn.rollback();
-                return false;
-            } catch (SQLException e) {
-                conn.rollback();
-                throw e;
-            } finally {
-                conn.setAutoCommit(true);
-            }
-        } catch (SQLException e) {
-            plugin.getLogger().warning("取出金钱失败: " + e.getMessage());
-            e.printStackTrace();
+
+        if (!plugin.getVaultEconomy().depositPlayer(player, amount).transactionSuccess()) {
+            player.sendMessage(MessageUtil.error("取款失败！"));
+            return false;
         }
-        return false;
+        recordTransaction(nation, player.getUniqueId(), TransactionType.WITHDRAW, amount, "玩家取款");
+        return true;
     }
     
     public List<Transaction> getTransactions(Nation nation, int page, int pageSize) {
@@ -1199,15 +1113,40 @@ public class NationManager {
         );
         
         stmt.setLong(1, nation.getId());
-        stmt.setString(2, playerUuid.toString());
+        if (playerUuid != null) {
+            stmt.setString(2, playerUuid.toString());
+        } else {
+            stmt.setNull(2, Types.VARCHAR);
+        }
         stmt.setString(3, type.name());
         stmt.setDouble(4, amount);
         stmt.setString(5, description);
         stmt.setLong(6, System.currentTimeMillis());
         
         stmt.executeUpdate();
+        
+        // 更新国家余额
+        updateNationBalance(nation);
+        
     }
 
+    private void updateNationBalance(Nation nation) {
+        try (Connection conn = plugin.getDatabaseManager().getConnection()) {
+            PreparedStatement stmt = conn.prepareStatement(
+                "UPDATE " + plugin.getDatabaseManager().getTablePrefix() + 
+                "nations SET balance = ? WHERE id = ?"
+            );
+            
+            stmt.setDouble(1, nation.getBalance());
+            stmt.setLong(2, nation.getId());
+            stmt.executeUpdate();
+            
+        } catch (SQLException e) {
+            plugin.getLogger().severe("更新国家余额失败: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
     public boolean transferNation(Nation nation, Player newOwner) {
         try (Connection conn = plugin.getDatabaseManager().getConnection()) {
             conn.setAutoCommit(false);
@@ -1501,23 +1440,6 @@ public class NationManager {
             
         } catch (SQLException e) {
             plugin.getLogger().severe("记录交易失败: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
-
-    private void updateNationBalance(Nation nation) {
-        try (Connection conn = plugin.getDatabaseManager().getConnection()) {
-            PreparedStatement stmt = conn.prepareStatement(
-                "UPDATE " + plugin.getDatabaseManager().getTablePrefix() + 
-                "nations SET balance = ? WHERE id = ?"
-            );
-            
-            stmt.setDouble(1, nation.getBalance());
-            stmt.setLong(2, nation.getId());
-            stmt.executeUpdate();
-            
-        } catch (SQLException e) {
-            plugin.getLogger().severe("更新国家余额失败: " + e.getMessage());
             e.printStackTrace();
         }
     }
