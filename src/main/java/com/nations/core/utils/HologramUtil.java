@@ -19,9 +19,6 @@ public class HologramUtil {
         createHologramLine(holoLoc.clone().add(0, 0.5, 0), 
             "§6" + building.getType().getDisplayName() + " §7Lv." + building.getLevel());
         
-        // 创建信息行
-        createHologramLine(holoLoc.clone().add(0, 0.25, 0), 
-            "§e点击查看详细信息");
         
         // 创建加成效果
         building.getBonuses().forEach((key, value) -> {

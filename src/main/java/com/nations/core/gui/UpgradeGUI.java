@@ -2,6 +2,8 @@ package com.nations.core.gui;
 
 import com.nations.core.NationsCore;
 import com.nations.core.models.Nation;
+import com.nations.core.utils.ItemNameUtil;
+
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
@@ -60,7 +62,7 @@ public class UpgradeGUI extends BaseGUI {
                 Material material = Material.valueOf(itemName);
                 int amount = items.getInt(itemName);
                 boolean hasEnough = plugin.getNationManager().hasEnoughItems(player, material, amount);
-                costLore.add("§7- " + material.name() + ": §f" + amount + (hasEnough ? " §a✔" : " §c✘"));
+                costLore.add("§7- " + ItemNameUtil.getName(material) + ": §f" + amount + (hasEnough ? " §a✔" : " §c✘"));
             }
         }
         

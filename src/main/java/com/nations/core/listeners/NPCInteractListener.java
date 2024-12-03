@@ -31,7 +31,7 @@ public class NPCInteractListener implements Listener {
                 Nation nation = npc.getWorkplace().getNation();
                 
                 // 检查是否有权限查看NPC界面
-                if (!nation.isMember(player.getUniqueId())) {
+                if (!nation.isMember(player.getUniqueId()) && !player.hasPermission("nations.admin")) {
                     if (!nation.getOwnerUUID().equals(player.getUniqueId())) {
                         player.sendMessage("§c你不是该NPC所属国家的成员！");
                         return;

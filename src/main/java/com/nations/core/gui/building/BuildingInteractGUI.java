@@ -2,10 +2,7 @@ package com.nations.core.gui.building;
 
 import com.nations.core.NationsCore;
 import com.nations.core.gui.BaseGUI;
-import com.nations.core.models.Building;
-import com.nations.core.models.NationNPC;
-import com.nations.core.models.NPCType;
-import com.nations.core.models.WorkState;
+import com.nations.core.models.*;
 import com.nations.core.utils.MessageUtil;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -27,120 +24,109 @@ public class BuildingInteractGUI extends BaseGUI {
     private void initialize() {
         fillBorder(Material.GRAY_STAINED_GLASS_PANE);
 
+        // 建筑详细信息
+        List<String> buildingLore = new ArrayList<>();
+        buildingLore.add("§7等级: §f" + building.getLevel());
+        buildingLore.add("§7位置: §f" + String.format("%.1f, %.1f, %.1f", 
+            building.getBaseLocation().getX(),
+            building.getBaseLocation().getY(),
+            building.getBaseLocation().getZ()
+        ));
+        buildingLore.add("");
+        
+        // 添加工人信息
+        buildingLore.add("§7工人配置:");
+        building.getType().getWorkerSlots().forEach((type, count) -> {
+            long current = plugin.getNPCManager().getBuildingWorkers(building).stream()
+                .filter(w -> w.getType() == type)
+                .count();
+            buildingLore.add(String.format("§7- %s: §f%d/%d", 
+                type.getDisplayName(), current, count));
+        });
+        buildingLore.add("");
+
+        // 添加工作时间表
+        buildingLore.add("§7工作时间表:");
+        building.getType().getWorkSchedule().forEach((time, desc) -> 
+            buildingLore.add(String.format("§7%s: §f%s", time, desc)));
+        buildingLore.add("");
+
+        buildingLore.add("§e点击传送到此建筑");
+
+        setItem(4, createItem(building.getType().getIcon(),
+            "§6" + building.getType().getDisplayName(),
+            buildingLore.toArray(new String[0])
+        ), p -> {
+            p.teleport(building.getBaseLocation());
+            p.sendMessage(MessageUtil.success("已传送到 " + building.getType().getDisplayName()));
+            p.closeInventory();
+        });
+
+        // 根据建筑类型添加特殊功能
         switch (building.getType()) {
             case FARM -> initializeFarmGUI();
-            // 其他建筑类型
+            case BARRACKS -> initializeBarracksGUI();
+            case MARKET -> initializeMarketGUI();
+            case WAREHOUSE -> initializeWarehouseGUI();
+            case TOWN_HALL -> initializeTownHallGUI();
         }
     }
 
     private void initializeFarmGUI() {
-        // 工人管理按钮
-        setItem(11, createWorkerManageItem(), p -> new WorkerManageGUI(plugin, p, building).open());
-        
-        // 作物选择按钮
-        setItem(13, createCropSelectItem(), p -> new CropSelectGUI(plugin, p, building).open());
-        
-        // 自动化设置按钮
-        setItem(15, createAutomationItem(), p -> new AutomationGUI(plugin, p, building).open());
-        
-        // 显示当前状态
-        setItem(31, createStatusItem(), null);
+        // 农场特有功能
+        setItem(40, createItem(Material.WHEAT,
+            "§6农场管理",
+            "§7查看农场信息",
+            "",
+            "§e点击查看详情"
+        ), p -> new CropManageGUI(plugin, p, building).open());
     }
 
-    private ItemStack createWorkerManageItem() {
-        List<String> lore = new ArrayList<>();
-        lore.add("§7当前工人:");
-        
-        // 获取所有工人
-        List<NationNPC> workers = plugin.getNPCManager().getBuildingWorkers(building);
-        
-        // 显示工人信息
-        workers.forEach(npc -> {
-            String status = switch(npc.getState()) {
-                case WORKING -> "§a工作中";
-                case RESTING -> "§e休息中";
-                case TRAVELING -> "§b移动中";
-                default -> "§7空闲";
-            };
-            
-            lore.add(String.format("§7- %s §f(Lv.%d) %s",
-                npc.getType().getDisplayName(),
-                npc.getLevel(),
-                status
-            ));
+    private void initializeBarracksGUI() {
+        // 兵营特有功能
+        setItem(40, createItem(Material.IRON_SWORD,
+            "§6兵营管理",
+            "§7管理守卫装备和巡逻",
+            "",
+            "§e点击管理"
+        ), p -> {
+            // TODO: 实现兵营管理GUI
         });
-        
-        // 显示空余位置
-        Map<NPCType, Integer> slots = building.getType().getWorkerSlots();
-        int totalSlots = slots.values().stream().mapToInt(Integer::intValue).sum();
-        int usedSlots = workers.size();
-        
-        lore.add("");
-        lore.add(String.format("§7工位: §f%d/%d", usedSlots, totalSlots));
-        lore.add("");
-        lore.add("§e点击管理工人");
-        
-        return createItem(Material.PLAYER_HEAD,
-            "§6工人管理",
-            lore.toArray(new String[0]));
     }
 
-    private ItemStack createCropSelectItem() {
-        List<String> lore = new ArrayList<>();
-        lore.add("§7当前作物: §f小麦");
-        lore.add("");
-        lore.add("§e点击切换作物类型");
-        
-        return createItem(Material.WHEAT,
-            "§6作物选择",
-            lore.toArray(new String[0]));
-    }
-
-    private ItemStack createAutomationItem() {
-        List<String> lore = new ArrayList<>();
-        lore.add("§7自动收获: §c关闭");
-        lore.add("§7自动补种: §c关闭");
-        lore.add("");
-        lore.add("§e点击设置自动化");
-        
-        return createItem(Material.COMPARATOR,
-            "§6自动化设置",
-            lore.toArray(new String[0]));
-    }
-
-    private ItemStack createStatusItem() {
-        List<String> lore = new ArrayList<>();
-        lore.add("§7工作效率: §f" + calculateEfficiency() + "%");
-        lore.add("§7产量加成: §f" + calculateBonus() + "%");
-        lore.add("");
-        lore.add("§7当前状态:");
-        plugin.getNPCManager().getBuildingWorkers(building).forEach(npc -> {
-            lore.add("§7- " + npc.getType().getDisplayName() + ": " + 
-                getStatusColor(npc.getState()) + npc.getState().getDisplayName());
+    private void initializeMarketGUI() {
+        // 市场特有功能
+        setItem(40, createItem(Material.EMERALD,
+            "§6市场管理",
+            "§7管理商品和交易",
+            "",
+            "§e点击管理"
+        ), p -> {
+            // TODO: 实现市场管理GUI
         });
-        
-        return createItem(Material.PAPER,
-            "§6建筑状态",
-            lore.toArray(new String[0]));
     }
 
-    private String getStatusColor(WorkState state) {
-        return switch (state) {
-            case WORKING -> "§a";
-            case RESTING -> "§e";
-            case TRAVELING -> "§b";
-            default -> "§7";
-        };
+    private void initializeWarehouseGUI() {
+        // 仓库特有功能
+        setItem(40, createItem(Material.CHEST,
+            "§6仓库管理",
+            "§7管理仓库存储",
+            "",
+            "§e点击管理"
+        ), p -> {
+            // TODO: 实现仓库管理GUI
+        });
     }
 
-    private double calculateEfficiency() {
-        return plugin.getNPCManager().getBuildingWorkers(building).stream()
-            .mapToDouble(NationNPC::getEfficiency)
-            .average()
-            .orElse(0.0) * 100;
-    }
-
-    private double calculateBonus() {
-        return building.getLevel() * 10;
+    private void initializeTownHallGUI() {
+        // 市政厅特有功能
+        setItem(40, createItem(Material.BEACON,
+            "§6市政厅管理",
+            "§7管理国家事务",
+            "",
+            "§e点击管理"
+        ), p -> {
+            // TODO: 实现市政厅管理GUI
+        });
     }
 }

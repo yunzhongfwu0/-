@@ -402,11 +402,20 @@ public enum BuildingType {
             public void placeStructure(Location loc) {
                 World world = loc.getWorld();
                 
+                // 先放置地基
+                for (int x = -3; x <= 3; x++) {
+                    for (int z = -3; z <= 3; z++) {
+                        world.getBlockAt(loc.clone().add(x, -1, z)).setType(Material.DIRT);
+                    }
+                }
+                
                 // 耕地和水源
                 for (int x = -3; x <= 3; x++) {
                     for (int z = -3; z <= 3; z++) {
                         Location blockLoc = loc.clone().add(x, 0, z);
                         if ((x + z) % 3 == 0) {
+                            // 水源方块底部放置石头
+                            world.getBlockAt(blockLoc.clone().add(0, -1, 0)).setType(Material.STONE);
                             world.getBlockAt(blockLoc).setType(Material.WATER);
                         } else {
                             world.getBlockAt(blockLoc).setType(Material.FARMLAND);

@@ -2,6 +2,7 @@ package com.nations.core.utils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.bukkit.Material;
 
@@ -220,5 +221,20 @@ public class MessageUtil {
     public static String formatResourceRequirement(Material material, int required, int has) {
         String itemName = ItemNameUtil.getName(material);
         return "§7- " + itemName + ": §f需要 " + required + "，拥有 " + has;
+    }
+    
+    /**
+     * 格式化多个资源的需求列表
+     * @param requirements Map<Material, Integer> 资源需求，key为物品类型，value为需求数量
+     * @param inventory Map<Material, Integer> 玩家拥有的资源，key为物品类型，value为拥有数量
+     * @return 格式化后的资源需求列表字符串
+     */
+    public static String formatResourceRequirements(Map<Material, Integer> requirements, Map<Material, Integer> inventory) {
+        StringBuilder sb = new StringBuilder();
+        requirements.forEach((material, required) -> {
+            int has = inventory.getOrDefault(material, 0);
+            sb.append(formatResourceRequirement(material, required, has)).append("\n");
+        });
+        return sb.toString();
     }
 } 

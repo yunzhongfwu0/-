@@ -120,16 +120,59 @@ public class BuildingDetailGUI extends BaseGUI {
         lore.add("§7下一等级: §f" + nextLevel);
         lore.add("");
         lore.add("§7升级需要:");
-        // 添加升级所需资源...
+        lore.add("§7- 金币: §f" + getUpgradeCost());
+        
+        // 获取升级所需资源
+        Map<Material, Integer> upgradeCosts = getUpgradeResourceCosts();
+        if (!upgradeCosts.isEmpty()) {
+            upgradeCosts.forEach((material, amount) -> {
+                boolean hasEnough = plugin.getNationManager().hasEnoughItems(player, material, amount);
+                lore.add("§7- " + ItemNameUtil.getName(material) + ": §f" + amount + (hasEnough ? " §a✔" : " §c✘"));
+            });
+        }
+        
         lore.add("");
         lore.add("§7升级后效果:");
-        // 添加升级后的效果...
+        lore.add("§7- 工作效率提升 10%");
+        lore.add("§7- 工人上限 +1");
+        lore.add("§7- 特殊效果增强");
         lore.add("");
         lore.add("§e点击升级");
         
         return createItem(Material.EXPERIENCE_BOTTLE,
             "§6升级建筑",
             lore.toArray(new String[0]));
+    }
+    
+    private Map<Material, Integer> getUpgradeResourceCosts() {
+        Map<Material, Integer> costs = new HashMap<>();
+        int nextLevel = building.getLevel() + 1;
+        
+        // 这里可以根据建筑类型和等级来设置不同的资源需求
+        switch (building.getType()) {
+            case FARM -> {
+                costs.put(Material.WHEAT, 32 * nextLevel);
+                costs.put(Material.IRON_HOE, nextLevel);
+            }
+            case BARRACKS -> {
+                costs.put(Material.IRON_SWORD, nextLevel);
+                costs.put(Material.IRON_CHESTPLATE, nextLevel);
+            }
+            case MARKET -> {
+                costs.put(Material.EMERALD, 16 * nextLevel);
+                costs.put(Material.CHEST, 2 * nextLevel);
+            }
+            case WAREHOUSE -> {
+                costs.put(Material.CHEST, 4 * nextLevel);
+                costs.put(Material.IRON_BLOCK, 2 * nextLevel);
+            }
+            case TOWN_HALL -> {
+                costs.put(Material.DIAMOND, 8 * nextLevel);
+                costs.put(Material.EMERALD_BLOCK, 2 * nextLevel);
+            }
+        }
+        
+        return costs;
     }
     
     private void handleDemolish(Player player) {

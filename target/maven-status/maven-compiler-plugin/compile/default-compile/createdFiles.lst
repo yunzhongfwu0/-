@@ -24,6 +24,7 @@ com\nations\core\NationsCore.class
 com\nations\core\models\BuildingType.class
 com\nations\core\gui\StatisticsGUI.class
 com\nations\core\managers\BuildingManager$1.class
+com\nations\core\listeners\BuildingProtectionListener.class
 com\nations\core\utils\TaskManager$2.class
 com\nations\core\gui\building\WorkerDetailGUI.class
 com\nations\core\npc\behaviors\FarmerBehavior.class
@@ -62,6 +63,7 @@ com\nations\core\gui\TransactionLogGUI.class
 com\nations\core\commands\NationCommand.class
 com\nations\core\models\BuildingType$2.class
 com\nations\core\utils\GuiEffects$1.class
+com\nations\core\gui\building\BuildingDetailGUI$1.class
 com\nations\core\gui\TerritoryGUI.class
 com\nations\core\models\BuildingFunction$2.class
 com\nations\core\gui\MemberListGUI.class
@@ -85,6 +87,7 @@ com\nations\core\database\ConnectionPool.class
 com\nations\core\utils\ParticleEffects$2.class
 com\nations\core\gui\building\BuildingCreateGUI$1.class
 com\nations\core\listeners\CitizensLoadListener.class
+com\nations\core\gui\building\CropManageGUI.class
 com\nations\core\models\Transaction.class
 com\nations\core\utils\BuildingBorderUtil.class
 com\nations\core\npc\behaviors\ManagerBehavior.class
@@ -117,7 +120,6 @@ com\nations\core\gui\UpgradeGUI.class
 com\nations\core\models\BuildingType$5.class
 com\nations\core\gui\InviteGUI.class
 com\nations\core\gui\SettingsGUI.class
-com\nations\core\managers\BuildingManager$2.class
 com\nations\core\utils\ParticleEffects$1.class
 com\nations\core\utils\ParticleEffects.class
 com\nations\core\gui\NPCSkillGUI.class

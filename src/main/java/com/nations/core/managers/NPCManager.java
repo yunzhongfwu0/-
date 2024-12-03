@@ -74,10 +74,22 @@ public class NPCManager {
         try (Connection conn = plugin.getDatabaseManager().getConnection()) {
             conn.setAutoCommit(false); // 开启事务
             try {
+                // 获取当前建筑中该类型NPC的数量
+                int currentCount = (int) buildingNPCs.getOrDefault(building.getId(), new HashSet<>())
+                    .stream()
+                    .filter(npc -> npc.getType() == type)
+                    .count();
+
+                // 生成编号 (从1开始)
+                String npcNumber = String.format("%03d", currentCount + 1);
+                
                 // 先创建 Citizens NPC
                 NPC citizensNPC = CitizensAPI.getNPCRegistry().createNPC(
                     EntityType.PLAYER, 
-                    "§6" + type.getDisplayName() + " §7- " + building.getNation().getName()
+                    String.format("§6%s-%s §7- %s", 
+                        type.getDisplayName(), 
+                        npcNumber,
+                        building.getNation().getName())
                 );
 
                 // 创建NPC记录
@@ -500,21 +512,11 @@ public class NPCManager {
                 
                 if (distance > buildingRadius) {
                     // 如果不在建筑范围内，移动回建筑区域
-                    plugin.getLogger().info(String.format(
-                        "%s 不在建筑范围内，正在返回 (距离: %.2f, 范围: %d)",
-                        npc.getCitizensNPC().getName(),
-                        distance,
-                        buildingRadius
-                    ));
                     npc.getCitizensNPC().getNavigator().setTarget(buildingLoc);
                 } else if (!npc.getCitizensNPC().getNavigator().isNavigating()) {
                     // 在建筑范围内且没有在移动，随机选择新的目标点
                     Location randomLoc = getRandomLocationInBuilding(buildingLoc, buildingRadius);
                     if (randomLoc != null) {
-                        plugin.getLogger().info(String.format(
-                            "%s 正在建筑内随机移动",
-                            npc.getCitizensNPC().getName()
-                        ));
                         npc.getCitizensNPC().getNavigator().setTarget(randomLoc);
                     }
                 }

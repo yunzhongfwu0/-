@@ -5,6 +5,7 @@ D:\我的世界国家插件\Nation\src\main\java\com\nations\core\utils\TerritoryVisuali
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\npc\behaviors\TraderBehavior.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\HelpGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\NPCSkillGUI.java
+D:\我的世界国家插件\Nation\src\main\java\com\nations\core\listeners\BuildingProtectionListener.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\EconomyManageGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\MemberListGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\utils\GuiEffects.java
@@ -28,6 +29,7 @@ D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\MaterialSelectorGU
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\TerritoryManageGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\models\NationRank.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\npc\NPCBehavior.java
+D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\building\CropManageGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\models\Transaction.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\building\AutomationGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\utils\MessageUtil.java

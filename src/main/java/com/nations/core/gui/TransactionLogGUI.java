@@ -31,6 +31,14 @@ public class TransactionLogGUI extends BaseGUI {
         for (Transaction trans : transactions) {
             Material material;
             String prefix;
+            // 获取玩家名称，处理 null UUID 的情况
+            String playerName = "系统";
+            if (trans.getPlayerUuid() != null) {
+                playerName = plugin.getServer().getOfflinePlayer(trans.getPlayerUuid()).getName();
+                if (playerName == null) {
+                    playerName = "系统";
+                }
+            }
             switch (trans.getType()) {
                 case DEPOSIT -> {
                     material = Material.EMERALD;
@@ -57,7 +65,7 @@ public class TransactionLogGUI extends BaseGUI {
             setItem(slot, createItem(material,
                 prefix + trans.getAmount() + " 金币",
                 "§7类型: §f" + trans.getType().getDisplayName(),
-                "§7操作者: §f" + plugin.getServer().getOfflinePlayer(trans.getPlayerUuid()).getName(),
+                "§7操作者: §f" + playerName,
                 "§7时间: §f" + DATE_FORMAT.format(trans.getDate()),
                 "§7说明: §f" + trans.getDescription()
             ), null);

@@ -129,8 +129,7 @@ public class MemberManageGUI extends BaseGUI {
     
     private ItemStack createMemberItem(UUID uuid, String rank) {
         OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(uuid);
-        Player player = offlinePlayer.getPlayer();
-        boolean isOnline = player != null && player.isOnline();
+        boolean isOnline = offlinePlayer.isOnline();
         
         List<String> lore = new ArrayList<>();
         lore.add("§7职位: §f" + rank);
@@ -149,16 +148,20 @@ public class MemberManageGUI extends BaseGUI {
             }
         }
         
-        if (nation.hasPermission(player.getUniqueId(), "nation.promote")) {
+        if (nation.hasPermission(this.player.getUniqueId(), "nation.promote")) {
             lore.add("");
             lore.add("§e左键 - 设置职位");
             lore.add("§e右键 - 踢出成员");
         }
         
-        return createItem(Material.PLAYER_HEAD,
-            "§6" + offlinePlayer.getName(),
-            lore.toArray(new String[0])
-        );
+        ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+        SkullMeta meta = (SkullMeta) head.getItemMeta();
+        meta.setOwningPlayer(offlinePlayer);
+        meta.setDisplayName("§6" + (offlinePlayer.getName() != null ? offlinePlayer.getName() : uuid.toString().substring(0, 8)));
+        meta.setLore(lore);
+        head.setItemMeta(meta);
+        
+        return head;
     }
     
     private String formatLastPlayed(long lastPlayed) {

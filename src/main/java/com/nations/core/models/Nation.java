@@ -1,11 +1,10 @@
 package com.nations.core.models;
 
+import com.nations.core.NationsCore;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
-
-import com.nations.core.NationsCore;
-import com.nations.core.models.Transaction.TransactionType;
+import org.bukkit.entity.Player;
 
 import java.util.*;
 
@@ -29,6 +28,7 @@ public class Nation {
     private final Set<UUID> invites = new HashSet<>();
     private final long createdTime;
     private Set<Building> buildings = new HashSet<>();
+    private Map<UUID, Long> memberActivity = new HashMap<>();
     
     public Nation(long id, String name, UUID ownerUUID, int level, double balance,
                  String serverId, int serverPort, boolean isLocalServer) {
@@ -270,7 +270,7 @@ public class Nation {
         this.hasSpawnCoordinates = true;
     }
     
-    // 添加这些getter方法用于保存数据
+    // 添加这些getter方��用于保存数据
     public double getSpawnX() { return spawnX; }
     public double getSpawnY() { return spawnY; }
     public double getSpawnZ() { return spawnZ; }
@@ -341,13 +341,47 @@ public class Nation {
     
     public void withdraw(double amount) {
         this.balance -= amount;
-        // 记录交易
-        plugin.getNationManager().recordTransaction(this, null, TransactionType.WITHDRAW, amount, "支出");
     }
     
     public void deposit(double amount) {
         this.balance += amount;
-        // 记录交易
-        plugin.getNationManager().recordTransaction(this, null, TransactionType.DEPOSIT, amount, "工人解雇返还");
+    }
+
+    // 获取在线成员列表
+    public List<Player> getOnlineMembers() {
+        List<Player> onlineMembers = new ArrayList<>();
+        // 添加国家所有者（如果在线）
+        Player owner = Bukkit.getPlayer(ownerUUID);
+        if (owner != null && owner.isOnline()) {
+            onlineMembers.add(owner);
+        }
+        
+        // 添加在线成员
+        for (UUID memberId : members.keySet()) {
+            Player member = Bukkit.getPlayer(memberId);
+            if (member != null && member.isOnline()) {
+                onlineMembers.add(member);
+            }
+        }
+        return onlineMembers;
+    }
+
+    // 更新成员活跃度
+    public void updateMemberActivity(UUID playerId) {
+        if (!memberActivity.containsKey(playerId)) {
+            memberActivity = new HashMap<>();
+        }
+        memberActivity.put(playerId, System.currentTimeMillis());
+    }
+
+    // 获取成员最后活跃时间
+    public long getLastActivity(UUID playerId) {
+        return memberActivity.getOrDefault(playerId, 0L);
+    }
+
+    // 检查成员是否活跃（7天内登录过）
+    public boolean isActiveMember(UUID playerId) {
+        long lastActive = getLastActivity(playerId);
+        return (System.currentTimeMillis() - lastActive) < (7 * 24 * 60 * 60 * 1000);
     }
 } 

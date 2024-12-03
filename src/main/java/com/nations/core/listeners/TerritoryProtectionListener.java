@@ -24,6 +24,12 @@ public class TerritoryProtectionListener implements Listener {
     @EventHandler
     public void onBlockBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
+        
+        // 如果是系统管理员，直接允许操作
+        if (player.hasPermission("nations.admin")) {
+            return;
+        }
+        
         Location location = event.getBlock().getLocation();
         
         // 检查是否在任何国家的领土内
@@ -41,6 +47,12 @@ public class TerritoryProtectionListener implements Listener {
     @EventHandler
     public void onBlockPlace(BlockPlaceEvent event) {
         Player player = event.getPlayer();
+        
+        // 如果是系统管理员，直接允许操作
+        if (player.hasPermission("nations.admin")) {
+            return;
+        }
+        
         Location location = event.getBlock().getLocation();
         
         for (Nation nation : plugin.getNationManager().getAllNations()) {
@@ -59,6 +71,12 @@ public class TerritoryProtectionListener implements Listener {
         if (event.getClickedBlock() == null) return;
         
         Player player = event.getPlayer();
+        
+        // 如果是系统管理员，直接允许操作
+        if (player.hasPermission("nations.admin")) {
+            return;
+        }
+        
         Location location = event.getClickedBlock().getLocation();
         
         for (Nation nation : plugin.getNationManager().getAllNations()) {

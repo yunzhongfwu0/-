@@ -51,6 +51,11 @@ public class FarmerBehavior implements NPCBehavior {
             return;
         }
 
+        // 每次工作有30%的概率实际执行（降低工作频率）
+        if (random.nextDouble() >= 0.7) {
+            return;
+        }
+
         // 检查是否有工作可做
         boolean hasWork = false;
         
@@ -71,7 +76,7 @@ public class FarmerBehavior implements NPCBehavior {
             // 在范围内,直接收获
             harvestCrop(targetCrop, npc);
             npc.gainExperience(1);
-            npc.setEnergy(npc.getEnergy() - 1);
+            npc.setEnergy(npc.getEnergy() - 2); // 增加体力消耗
             return;
         }
 
@@ -101,9 +106,6 @@ public class FarmerBehavior implements NPCBehavior {
         // 如果没有工作可做，进入休息状态
         if (!hasWork) {
             if (npc.getState() != WorkState.RESTING) {
-                NationsCore.getInstance().getLogger().info(
-                    "农民没有找到工作，进入休息状态"
-                );
                 enterRestState(npc);
             }
         }
@@ -190,11 +192,51 @@ public class FarmerBehavior implements NPCBehavior {
         
         // 基础掉落
         Material cropType = block.getType();
-        ItemStack drops = new ItemStack(cropType, 1);
+        ItemStack drops = new ItemStack(getCropDropType(cropType), 1);
         Map<Integer, ItemStack> overflow = npc.getInventory().addItem(drops);
         if (!overflow.isEmpty()) {
             for (ItemStack item : overflow.values()) {
                 block.getWorld().dropItemNaturally(dropLoc, item);
+            }
+        }
+        
+        // 种子掉落
+        Material seedType = getSeedType(cropType);
+        if (seedType != null) {
+            // 基础掉落概率为30%，每级增加2%，最高90%
+            double seedDropChance = Math.min(0.3 + (npc.getLevel() * 0.02), 0.9);
+            
+            // 收获大师技能增加10%-30%的掉落概率
+            if (harvestBonus > 0) {
+                seedDropChance += harvestBonus * 0.2; // 0.1-0.3的额外概率
+            }
+            
+            if (random.nextDouble() < seedDropChance) {
+                // 基础掉落1个种子，每5级增加1个上限
+                int maxSeeds = 1 + (npc.getLevel() / 5);
+                int seedAmount = 1 + random.nextInt(maxSeeds);
+                
+                // 收获大师技能有几率额外给予种子
+                if (harvestBonus > 0 && random.nextDouble() < harvestBonus) {
+                    seedAmount += 1;
+                }
+                
+                ItemStack seeds = new ItemStack(seedType, seedAmount);
+                overflow = npc.getInventory().addItem(seeds);
+                if (!overflow.isEmpty()) {
+                    for (ItemStack item : overflow.values()) {
+                        block.getWorld().dropItemNaturally(dropLoc, item);
+                    }
+                }
+                
+                // 显示种子掉落效果
+                block.getWorld().spawnParticle(
+                    org.bukkit.Particle.VILLAGER_HAPPY,
+                    dropLoc,
+                    3, 0.2, 0.2, 0.2, 0,
+                    null,
+                    true
+                );
             }
         }
         
@@ -207,7 +249,7 @@ public class FarmerBehavior implements NPCBehavior {
             true
         );
         
-        // 额外掉落（基于收获大师技能）
+        // 额外作物掉落（基于收获大师技能）
         if (random.nextDouble() < harvestBonus) {
             ItemStack bonusDrops = drops.clone();
             overflow = npc.getInventory().addItem(bonusDrops);
@@ -263,17 +305,53 @@ public class FarmerBehavior implements NPCBehavior {
         block.setBlockData(crop);
     }
 
+    private Material getSeedType(Material cropType) {
+        return switch (cropType) {
+            case WHEAT -> Material.WHEAT_SEEDS;
+            case BEETROOTS -> Material.BEETROOT_SEEDS;
+            case POTATOES -> Material.POTATO;
+            case CARROTS -> Material.CARROT;
+            case PUMPKIN_STEM -> Material.PUMPKIN_SEEDS;
+            case MELON_STEM -> Material.MELON_SEEDS;
+            default -> null;
+        };
+    }
+
+    private Material getCropDropType(Material cropType) {
+        return switch (cropType) {
+            case WHEAT -> Material.WHEAT;
+            case BEETROOTS -> Material.BEETROOT;
+            case POTATOES -> Material.POTATO;
+            case CARROTS -> Material.CARROT;
+            case PUMPKIN_STEM -> Material.PUMPKIN;
+            case MELON_STEM -> Material.MELON;
+            default -> cropType;
+        };
+    }
+
     private ItemStack findSeeds(NationNPC npc) {
-        // 检查是否有种子
-        int seedSlot = npc.getInventory().first(Material.WHEAT_SEEDS);
-        if (seedSlot == -1) {
-            // 记录日志：没有找到种子
-            NationsCore.getInstance().getLogger().info(
-                "农民没有种子可用"
-            );
-            return null;
+        // 按优先级检查各种种子
+        Material[] seedTypes = {
+            Material.WHEAT_SEEDS,
+            Material.BEETROOT_SEEDS,
+            Material.POTATO,
+            Material.CARROT,
+            Material.PUMPKIN_SEEDS,
+            Material.MELON_SEEDS
+        };
+        
+        for (Material seedType : seedTypes) {
+            int seedSlot = npc.getInventory().first(seedType);
+            if (seedSlot != -1) {
+                return npc.getInventory().getItem(seedSlot);
+            }
         }
-        return npc.getInventory().getItem(seedSlot);
+        
+        // 记录日志：没有找到种子
+        NationsCore.getInstance().getLogger().info(
+            "农民没有种子可用"
+        );
+        return null;
     }
 
     private boolean plantCrop(Location loc, NationNPC npc) {
@@ -329,20 +407,30 @@ public class FarmerBehavior implements NPCBehavior {
     }
 
     private Material getCropTypeFromSeeds(Material seedType) {
-        switch (seedType) {
-            case WHEAT_SEEDS:
-                return Material.WHEAT;
-            default:
-                return null;
-        }
+        return switch (seedType) {
+            case WHEAT_SEEDS -> Material.WHEAT;
+            case BEETROOT_SEEDS -> Material.BEETROOTS;
+            case POTATO -> Material.POTATOES;
+            case CARROT -> Material.CARROTS;
+            case PUMPKIN_SEEDS -> Material.PUMPKIN_STEM;
+            case MELON_SEEDS -> Material.MELON_STEM;
+            default -> null;
+        };
     }
 
     @Override
     public void onSpawn(NationNPC npc) {
-        // 增加初始种子数量并记录日志
-        npc.getInventory().addItem(new ItemStack(Material.WHEAT_SEEDS, 64));
+        // 给予初始种子
+        npc.getInventory().addItem(
+            new ItemStack(Material.WHEAT_SEEDS, 16),
+            new ItemStack(Material.BEETROOT_SEEDS, 16),
+            new ItemStack(Material.POTATO, 16),
+            new ItemStack(Material.CARROT, 16),
+            new ItemStack(Material.PUMPKIN_SEEDS, 8),
+            new ItemStack(Material.MELON_SEEDS, 8)
+        );
         NationsCore.getInstance().getLogger().info(
-            "给予农民 64 个小麦种子"
+            "给予农民初始种子"
         );
     }
 
@@ -380,9 +468,6 @@ public class FarmerBehavior implements NPCBehavior {
         // 恢复体力
         if (npc.getEnergy() < 100) {
             npc.setEnergy(Math.min(100, npc.getEnergy() + 5));
-            NationsCore.getInstance().getLogger().info(
-                String.format("农民正在休息，体力恢复到 %d%%", npc.getEnergy())
-            );
         } else if (npc.getState() == WorkState.RESTING) {
             // 如果体力已满且处于休息状态，准备恢复工作
             NationsCore.getInstance().getLogger().info(
@@ -418,27 +503,27 @@ public class FarmerBehavior implements NPCBehavior {
         NPCSkillData harvestMaster = npc.getSkillData(NPCSkill.HARVEST_MASTER);
         NPCSkillData cropExpert = npc.getSkillData(NPCSkill.CROP_EXPERT);
         
-        // 计算技能效果
+        // 计算技能效果（降低效果到原来的40%）
         double growthBonus = efficientFarming != null && efficientFarming.isUnlocked() ? 
-            NPCSkill.EFFICIENT_FARMING.getEffectValue(efficientFarming.getLevel()) : 0;
+            NPCSkill.EFFICIENT_FARMING.getEffectValue(efficientFarming.getLevel()) * 0.4 : 0;
             
         double harvestBonus = harvestMaster != null && harvestMaster.isUnlocked() ? 
-            NPCSkill.HARVEST_MASTER.getEffectValue(harvestMaster.getLevel()) : 0;
+            NPCSkill.HARVEST_MASTER.getEffectValue(harvestMaster.getLevel()) * 0.4 : 0;
             
         double rareDropChance = cropExpert != null && cropExpert.isUnlocked() ? 
-            NPCSkill.CROP_EXPERT.getEffectValue(cropExpert.getLevel()) : 0;
+            NPCSkill.CROP_EXPERT.getEffectValue(cropExpert.getLevel()) * 0.4 : 0;
 
         // 计算工作范围 (基础范围 + 技能加成)
         int workRadius = BASE_WORK_RADIUS;
         if (efficientFarming != null && efficientFarming.isUnlocked()) {
-            workRadius += Math.floor(efficientFarming.getLevel() * 0.5); // 每2级增加1格范围
+            workRadius += Math.floor(efficientFarming.getLevel() * 0.3); // 降低范围增长
         }
 
         // 计算能量消耗减免 (高等级农民更有效率)
         double energyEfficiency = 1.0;
         if (efficientFarming != null && efficientFarming.isUnlocked()) {
-            energyEfficiency -= (efficientFarming.getLevel() * 0.05); // 每级减少5%能量消耗
-            energyEfficiency = Math.max(0.5, energyEfficiency); // 最低消耗50%能量
+            energyEfficiency -= (efficientFarming.getLevel() * 0.03); // 降低能量减免
+            energyEfficiency = Math.max(0.7, energyEfficiency); // 最低消耗70%能量
         }
         
         int blockX = npc.getWorkPosition().getBlockX();
@@ -457,12 +542,13 @@ public class FarmerBehavior implements NPCBehavior {
                     if (block.getBlockData() instanceof Ageable) {
                         Ageable crop = (Ageable) block.getBlockData();
                         
-                        // 高效种植: 随机生长
-                        if (random.nextDouble() < growthBonus) {
+                        // 高效种植: 随机生长（降低概率）
+                        if (random.nextDouble() < growthBonus * 0.4) {
                             if (crop.getAge() < crop.getMaximumAge()) {
                                 int growthAmount = 1;
-                                // 高级农民可能一次性生长多格
-                                if (efficientFarming != null && efficientFarming.getLevel() >= 8) {
+                                // 高级农民可能一次性生长多格（降低等级要求和概率）
+                                if (efficientFarming != null && efficientFarming.getLevel() >= 12 
+                                    && random.nextDouble() < 0.3) {
                                     growthAmount = random.nextInt(2) + 1;
                                 }
                                 
@@ -470,8 +556,8 @@ public class FarmerBehavior implements NPCBehavior {
                                 crop.setAge(newAge);
                                 block.setBlockData(crop);
                                 
-                                // 根据生长量给予经验
-                                int expGain = 5 * growthAmount;
+                                // 根据生长量给予经验（降低经验）
+                                int expGain = 3 * growthAmount;
                                 npc.gainExperience(expGain);
                                 
                                 // 消耗能量
@@ -481,25 +567,25 @@ public class FarmerBehavior implements NPCBehavior {
                         }
                         
                         // 收获成熟作物
-                        if (crop.getAge() == crop.getMaximumAge()) {
-                            // 收获大师: 增加产量
+                        if (crop.getAge() == crop.getMaximumAge() && random.nextDouble() < 0.4) { // 降低自动收获概率
+                            // 收获大师: 增加产量（降低加成）
                             int baseDrops = 1;
-                            int bonusDrops = (int)(baseDrops * harvestBonus);
+                            int bonusDrops = (int)(baseDrops * (harvestBonus * 0.5));
                             
-                            // 作物专家: 稀有作物掉落
-                            if (random.nextDouble() < rareDropChance) {
+                            // 作物专家: 稀有作物掉落（降低概率）
+                            if (random.nextDouble() < rareDropChance * 0.3) {
                                 // 根据专家等级决定稀有物品
                                 int maxRareIndex = cropExpert != null ? 
                                     Math.min(RARE_CROPS.length - 1, 
-                                        (int)(cropExpert.getLevel() / 3)) : 0;
+                                        (int)(cropExpert.getLevel() / 4)) : 0;
                                 
                                 Material rareCrop = RARE_CROPS[random.nextInt(maxRareIndex + 1)];
                                 npc.getInventory().addItem(new ItemStack(rareCrop));
                                 
-                                // 稀有作物给予更多经验
-                                int rareExpGain = 20;
+                                // 稀有作物给予更多经验（降低经验）
+                                int rareExpGain = 15;
                                 if (rareCrop == Material.ENCHANTED_GOLDEN_APPLE) {
-                                    rareExpGain = 100; // 特殊奖励
+                                    rareExpGain = 50;
                                 }
                                 npc.gainExperience(rareExpGain);
                             }
@@ -513,8 +599,8 @@ public class FarmerBehavior implements NPCBehavior {
                             crop.setAge(0);
                             block.setBlockData(crop);
                             
-                            // 收获经验
-                            int harvestExp = 10 + (bonusDrops * 2); // 额外产量带来更多经验
+                            // 收获经验（降低经验）
+                            int harvestExp = 5 + bonusDrops;
                             npc.gainExperience(harvestExp);
                             
                             // 消耗能量 (收获比生长更累)

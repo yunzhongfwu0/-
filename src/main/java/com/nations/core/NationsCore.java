@@ -20,6 +20,7 @@ import com.nations.core.managers.NPCManager;
 import com.nations.core.listeners.CitizensLoadListener;
 import com.nations.core.listeners.NPCInteractListener;
 import com.nations.core.managers.NPCSkillManager;
+import com.nations.core.listeners.BuildingProtectionListener;
 
 import lombok.Getter;
 import net.milkbowl.vault.economy.Economy;
@@ -138,6 +139,7 @@ public class NationsCore extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new TerritoryProtectionListener(this), this);
         getServer().getPluginManager().registerEvents(new ChatInputListener(), this);
         getServer().getPluginManager().registerEvents(new NPCInteractListener(this), this);
+        getServer().getPluginManager().registerEvents(new BuildingProtectionListener(this), this);
     }
 
     private boolean setupEconomy() {

@@ -848,6 +848,14 @@ public class NationManager {
             return false;
         }
 
+        // 增加国库余额
+        if (!addBalance(nation, amount)) {
+            // 如果增加余额失败，退还玩家金币
+            plugin.getVaultEconomy().depositPlayer(player, amount);
+            player.sendMessage(MessageUtil.error("存款失败！"));
+            return false;
+        }
+
         recordTransaction(nation, player.getUniqueId(), TransactionType.DEPOSIT, amount, "玩家存款");
         return true;
     }
@@ -868,10 +876,19 @@ public class NationManager {
             return false;
         }
 
-        if (!plugin.getVaultEconomy().depositPlayer(player, amount).transactionSuccess()) {
+        // 扣除国库余额
+        if (!takeBalance(nation, amount)) {
             player.sendMessage(MessageUtil.error("取款失败！"));
             return false;
         }
+
+        if (!plugin.getVaultEconomy().depositPlayer(player, amount).transactionSuccess()) {
+            // 如果给玩家转账失败，恢复国库余额
+            addBalance(nation, amount);
+            player.sendMessage(MessageUtil.error("取款失败！"));
+            return false;
+        }
+
         recordTransaction(nation, player.getUniqueId(), TransactionType.WITHDRAW, amount, "玩家取款");
         return true;
     }
@@ -887,7 +904,7 @@ public class NationManager {
             
             stmt.setLong(1, nation.getId());
             stmt.setInt(2, pageSize);
-            stmt.setInt(3, (page - 1) * pageSize);
+            stmt.setInt(3, (page) * pageSize);
             
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) {

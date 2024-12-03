@@ -29,6 +29,7 @@ public class Building {
     private Map<String, Double> bonuses;
     private final Nation nation;
     private final Map<String, Double> efficiencyBonuses = new HashMap<>();
+    private String cropType;
     
     public Building(long id, long nationId, BuildingType type, int level, 
                    Location location, int size) {
@@ -185,5 +186,26 @@ public class Building {
         return 1.0 + efficiencyBonuses.values().stream()
             .mapToDouble(Double::doubleValue)
             .sum();
+    }
+
+    public String getCropType() {
+        return cropType;
+    }
+
+    public void setCropType(String cropType) {
+        this.cropType = cropType;
+    }
+
+    public String getCropTypeDisplayName() {
+        if (cropType == null) return "无";
+        switch (cropType) {
+            case "WHEAT": return "小麦";
+            case "CARROT": return "胡萝卜";
+            case "POTATO": return "马铃薯";
+            case "BEETROOT": return "甜菜根";
+            case "PUMPKIN": return "南瓜";
+            case "MELON": return "西瓜";
+            default: return cropType;
+        }
     }
 } 
