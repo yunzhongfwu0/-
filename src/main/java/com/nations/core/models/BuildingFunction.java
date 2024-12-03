@@ -61,6 +61,14 @@ public class BuildingFunction {
                 ItemStack food = new ItemStack(Material.BREAD, production);
                 Location loc = building.getBaseLocation();
                 
+                // 记录生产信息
+                plugin.getLogger().info(String.format(
+                    "农场生产食物: 等级=%d, 工人效率=%.2f, 产量=%d",
+                    building.getLevel(),
+                    totalEfficiency,
+                    production
+                ));
+                
                 if (loc != null && loc.getWorld() != null) {
                     // 让收割工运送食物
                     workers.stream()
@@ -82,22 +90,36 @@ public class BuildingFunction {
                                             harvester.getCitizensNPC().getNavigator()
                                                 .setTarget(warehouse.getBaseLocation());
                                             addToWarehouse(warehouse, food);
+                                            plugin.getLogger().info(String.format(
+                                                "农场食物已存入仓库: 数量=%d",
+                                                production
+                                            ));
                                         } else {
                                             loc.getWorld().dropItemNaturally(loc, food);
+                                            plugin.getLogger().info(String.format(
+                                                "农场食物已掉落: 数量=%d (未找到仓库)",
+                                                production
+                                            ));
                                         }
                                         harvester.setState(WorkState.WORKING);
                                         harvester.gainExperience(production);
                                     }
                                 }.runTaskLater(plugin, 60L);
                             },
-                            () -> loc.getWorld().dropItemNaturally(loc, food)
+                            () -> {
+                                loc.getWorld().dropItemNaturally(loc, food);
+                                plugin.getLogger().info(String.format(
+                                    "农场食物已掉落: 数量=%d (无农民运送)",
+                                    production
+                                ));
+                            }
                         );
                 }
                 
                 // 农民获得经验
                 workers.forEach(npc -> npc.gainExperience(production / workers.size()));
             }
-        }.runTaskTimer(plugin, 0L, 72000L);
+        }.runTaskTimer(plugin, 0L, 72000); // 1小时 = 20ticks/s * 60s * 60min = 72000 ticks
     }
     
     private void runWarehouseTask() {

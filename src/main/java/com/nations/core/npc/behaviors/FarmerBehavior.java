@@ -17,8 +17,9 @@ import java.util.Map;
 import java.util.Random;
 
 public class FarmerBehavior implements NPCBehavior {
-    
-    private static final int BASE_WORK_RADIUS = 5;
+    // 基础工作范围
+    private static final int BASE_WORK_RADIUS = 3;
+    // 交互距离
     private static final double INTERACTION_DISTANCE = 2.5;
     private static final Random random = new Random();
     private static final Material[] RARE_CROPS = {
@@ -51,8 +52,8 @@ public class FarmerBehavior implements NPCBehavior {
             return;
         }
 
-        // 每次工作有30%的概率实际执行（降低工作频率）
-        if (random.nextDouble() >= 0.7) {
+        // 每次工作有概率实际执行（降低工作频率）
+        if (random.nextDouble() >= 0.6) {
             return;
         }
 

@@ -128,14 +128,10 @@ public class Nation {
     }
     
     public int getMaxRadius() {
-        // 根据国家等级返回最大领土径
-        return switch (level) {
-            case 1 -> 15;  // 30*30
-            case 2 -> 25;  // 50*50
-            case 3 -> 35;  // 70*70
-            case 4 -> 50;  // 100*100
-            default -> 15;
-        };
+        // 从配置文件获取最大领土范围
+        int maxTerritory = plugin.getConfig().getInt("nations.levels." + level + ".max-territory", 30);
+        // 配置中是边长，需要除以2得到半径
+        return maxTerritory / 2;
     }
     
     public long getId() {
@@ -270,7 +266,7 @@ public class Nation {
         this.hasSpawnCoordinates = true;
     }
     
-    // 添加这些getter方��用于保存数据
+    // 添加这些getter方用于保存数据
     public double getSpawnX() { return spawnX; }
     public double getSpawnY() { return spawnY; }
     public double getSpawnZ() { return spawnZ; }

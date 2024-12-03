@@ -44,10 +44,7 @@ public class NationAdminCommand implements CommandExecutor {
         
         switch (args[0].toLowerCase()) {
             case "gui" -> new AdminGUI(plugin, player).open();
-            case "reload" -> {
-                plugin.reloadConfig();
-                player.sendMessage("§a配置文件已重新加载！");
-            }
+            case "reload" -> handleReload(sender);
             case "setcreationcost" -> new CostSettingsGUI(plugin, player, true, 0).open();
             case "setupgradecost" -> {
                 if (args.length < 2) {
@@ -217,5 +214,26 @@ public class NationAdminCommand implements CommandExecutor {
         } else {
             sender.sendMessage(MessageUtil.error("删除国家失败！"));
         }
+    }
+    
+    private void handleReload(CommandSender sender) {
+        if (!sender.hasPermission("nations.admin.reload")) {
+            sender.sendMessage(MessageUtil.error("你没有权限执行此命令！"));
+            return;
+        }
+        
+        // 重载配置
+        plugin.getConfigManager().loadConfigs();
+        
+        // 重载建筑
+        //plugin.getBuildingManager().reloadBuildings();
+        
+        // 重载NPC
+        //plugin.getNPCManager().reloadNPCs();
+        
+        // 更新NPC行为
+        //plugin.getNPCManager().updateNPCBehaviors();
+        
+        sender.sendMessage(MessageUtil.success("配置已重新加载！"));
     }
 } 

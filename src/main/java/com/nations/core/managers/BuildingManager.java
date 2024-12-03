@@ -2,6 +2,7 @@ package com.nations.core.managers;
 
 import com.nations.core.NationsCore;
 import com.nations.core.models.Building;
+import com.nations.core.models.BuildingFunction;
 import com.nations.core.models.BuildingType;
 import com.nations.core.models.Nation;
 import com.nations.core.utils.ItemNameUtil;
@@ -28,6 +29,7 @@ import java.util.*;
 public class BuildingManager {
     private final NationsCore plugin;
     private final Map<Long, Building> buildings = new HashMap<>();
+    private final Map<Long, Set<Building>> buildingsByNation = new HashMap<>();
     
     public BuildingManager(NationsCore plugin) {
         this.plugin = plugin;
@@ -36,61 +38,27 @@ public class BuildingManager {
     
     private void loadBuildings() {
         try (Connection conn = plugin.getDatabaseManager().getConnection()) {
-            ResultSet rs = conn.prepareStatement(
+            buildings.clear();
+            buildingsByNation.clear();
+            
+            PreparedStatement stmt = conn.prepareStatement(
                 "SELECT * FROM " + plugin.getDatabaseManager().getTablePrefix() + "buildings"
-            ).executeQuery();
+            );
+            ResultSet rs = stmt.executeQuery();
             
             while (rs.next()) {
-                long id = rs.getLong("id");
-                long nationId = rs.getLong("nation_id");
-                BuildingType type = BuildingType.valueOf(rs.getString("type"));
-                int level = rs.getInt("level");
-                
-                // 先获取国家
-                Nation nation = plugin.getNationManager().getNationById(nationId);
-                if (nation == null) {
-                    plugin.getLogger().warning("找不到ID为 " + nationId + " 的国家，跳过加载建筑 " + id);
-                    continue;
+                Building building = loadBuilding(rs);
+                if (building != null) {
+                    buildings.put(building.getId(), building);
+                    buildingsByNation.computeIfAbsent(building.getNationId(), k -> new HashSet<>())
+                        .add(building);
+                    
+                    // 初始化建筑功能
+                    new BuildingFunction(building).runTasks();
                 }
-                
-                // 获取位置
-                String worldName = rs.getString("world");
-                World world = plugin.getServer().getWorld(worldName);
-                if (world == null) {
-                    plugin.getLogger().warning("找不到世界 " + worldName + "，跳过加载建筑 " + id);
-                    continue;
-                }
-                
-                Location location = new Location(
-                    world,
-                    rs.getDouble("x"),
-                    rs.getDouble("y"),
-                    rs.getDouble("z")
-                );
-                
-                // 创建建筑实例
-                Building building = new Building(
-                    id,
-                    nationId,
-                    type,
-                    level,
-                    location,
-                    calculateSize(type, level)
-                );
-                
-                // 添加到缓存
-                buildings.put(id, building);
-                nation.addBuilding(building);
-                
-                plugin.getLogger().info(String.format(
-                    "已加载建筑: %s (ID: %d, 国家: %s)",
-                    type.getDisplayName(),
-                    id,
-                    nation.getName()
-                ));
             }
             
-            plugin.getLogger().info("共加载了 " + buildings.size() + " 个建筑");
+            plugin.getLogger().info("已加载 " + buildings.size() + " 个建筑");
             
         } catch (SQLException e) {
             plugin.getLogger().severe("加载建筑数据失败: " + e.getMessage());
@@ -188,7 +156,7 @@ public class BuildingManager {
     }
     
     private int calculateSize(BuildingType type, int level) {
-        return type.getBaseSize() + level - 1;
+        return type.getBaseSize() + (level - 1);
     }
     
     private int countPlayerItems(Player player, Material material) {
@@ -281,65 +249,87 @@ public class BuildingManager {
                 // 扣除资源
                 deductResources(nation, type);
                 
-                // 创建建筑记录
+                // 插入建筑记录
                 PreparedStatement stmt = conn.prepareStatement(
                     "INSERT INTO " + plugin.getDatabaseManager().getTablePrefix() + 
-                    "buildings (nation_id, type, level, world, x, y, z, created_time) " +
-                    "VALUES (?, ?, 1, ?, ?, ?, ?, ?)",
+                    "buildings (nation_id, type, level, world, x, y, z) VALUES (?, ?, ?, ?, ?, ?, ?)",
                     Statement.RETURN_GENERATED_KEYS
                 );
                 
                 stmt.setLong(1, nation.getId());
                 stmt.setString(2, type.name());
-                stmt.setString(3, location.getWorld().getName());
-                stmt.setInt(4, location.getBlockX());
-                stmt.setInt(5, location.getBlockY());
-                stmt.setInt(6, location.getBlockZ());
-                stmt.setLong(7, System.currentTimeMillis());
+                stmt.setInt(3, 1);
+                stmt.setString(4, location.getWorld().getName());
+                stmt.setDouble(5, location.getX());
+                stmt.setDouble(6, location.getY());
+                stmt.setDouble(7, location.getZ());
                 
                 stmt.executeUpdate();
-                ResultSet rs = stmt.getGeneratedKeys();
                 
+                // 获取生成的ID
+                ResultSet rs = stmt.getGeneratedKeys();
                 if (rs.next()) {
+                    long buildingId = rs.getLong(1);
+                    
+                    // 创建建筑实例
                     Building building = new Building(
-                        rs.getLong(1),
+                        buildingId,
                         nation.getId(),
                         type,
                         1,
                         location,
-                        type.getBaseSize()
+                        calculateSize(type, 1)
                     );
                     
                     // 添加到缓存
-                    buildings.put(building.getId(), building);
-                    
-                    // 添加到国家对象
+                    buildings.put(buildingId, building);
+                    buildingsByNation.computeIfAbsent(nation.getId(), k -> new HashSet<>())
+                        .add(building);
                     nation.addBuilding(building);
                     
-                    // 放置地基
+                    // 放置建筑结构
                     placeFoundation(building);
                     
                     // 创建全息显示
                     HologramUtil.createBuildingHologram(building);
-                    
+
+                    // 初始化建筑功能
+                    new BuildingFunction(building).runTasks();
                     // 显示建筑边界
                     BuildingBorderUtil.showBuildingBorder(building);
+
+                    // 发送成功消息
+                    owner.sendMessage(MessageUtil.success("建造成功！"));
                     
                     conn.commit();
                     return true;
                 }
-                
-                conn.rollback();
-                return false;
             } catch (SQLException e) {
                 conn.rollback();
                 throw e;
+            } finally {
+                conn.setAutoCommit(true);
             }
         } catch (SQLException e) {
-            plugin.getLogger().warning("创建建筑失败: " + e.getMessage());
+            plugin.getLogger().severe("创建建筑失败: " + e.getMessage());
             e.printStackTrace();
+            owner.sendMessage(MessageUtil.error("建造失败！请联系管理员检查后台错误。"));
         }
+        
         return false;
+    }
+    
+    public void reloadBuildings() {
+        // 停止所有现有的建筑功能任务
+        for (Building building : buildings.values()) {
+            if (building != null) {
+                // 取消旧的任务
+                plugin.getServer().getScheduler().cancelTasks(plugin);
+            }
+        }
+        
+        // 重新加载建筑
+        loadBuildings();
     }
     
     public boolean demolishBuilding(Nation nation, Building building) {
@@ -435,6 +425,57 @@ public class BuildingManager {
     
     public Building getBuildingById(long id) {
         return buildings.get(id);
+    }
+    
+    private Building loadBuilding(ResultSet rs) throws SQLException {
+        long id = rs.getLong("id");
+        long nationId = rs.getLong("nation_id");
+        BuildingType type = BuildingType.valueOf(rs.getString("type"));
+        int level = rs.getInt("level");
+        
+        // 先获取国家
+        Nation nation = plugin.getNationManager().getNationById(nationId);
+        if (nation == null) {
+            plugin.getLogger().warning("找不到ID为 " + nationId + " 的国家，跳过加载建筑 " + id);
+            return null;
+        }
+        
+        // 获取位置
+        String worldName = rs.getString("world");
+        World world = plugin.getServer().getWorld(worldName);
+        if (world == null) {
+            plugin.getLogger().warning("找不到世界 " + worldName + "，跳过加载建筑 " + id);
+            return null;
+        }
+        
+        Location location = new Location(
+            world,
+            rs.getDouble("x"),
+            rs.getDouble("y"),
+            rs.getDouble("z")
+        );
+        
+        // 创建建筑实例
+        Building building = new Building(
+            id,
+            nationId,
+            type,
+            level,
+            location,
+            calculateSize(type, level)
+        );
+        
+        // 添加到国家
+        nation.addBuilding(building);
+        
+        plugin.getLogger().info(String.format(
+            "已加载建筑: %s (ID: %d, 国家: %s)",
+            type.getDisplayName(),
+            id,
+            nation.getName()
+        ));
+        
+        return building;
     }
     
     // 其他方法...

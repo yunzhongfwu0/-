@@ -466,6 +466,23 @@ public class NPCManager {
                 saveAllNPCInventories();
             }
         }.runTaskTimer(plugin, 6000L, 6000L); // 每5分钟保存一次
+        
+        // NPC状态更新任务
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!loaded) return;
+                
+                for (NationNPC npc : npcs.values()) {
+                    try {
+                        updateNPCState(npc);
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("更新NPC状态时发生错误: " + e.getMessage());
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 20L, 20L); // 每秒更新一次NPC状态
     }
     
     private void updateNPCState(NationNPC npc) {
@@ -600,52 +617,7 @@ public class NPCManager {
             saveNPCLocations(npc);
         }
     }
-    
-    private void saveNPCLocations(NationNPC npc) {
-        try (Connection conn = plugin.getDatabaseManager().getConnection()) {
-            PreparedStatement stmt = conn.prepareStatement(
-                "UPDATE " + plugin.getDatabaseManager().getTablePrefix() + 
-                "npcs SET work_position_x = ?, work_position_y = ?, work_position_z = ?, " +
-                "work_position_world = ?, rest_position_x = ?, rest_position_y = ?, " +
-                "rest_position_z = ?, rest_position_world = ? WHERE id = ?"
-            );
-            
-            Location work = npc.getWorkPosition();
-            Location rest = npc.getRestPosition();
-            
-            if (work != null) {
-                stmt.setDouble(1, work.getX());
-                stmt.setDouble(2, work.getY());
-                stmt.setDouble(3, work.getZ());
-                stmt.setString(4, work.getWorld().getName());
-            } else {
-                stmt.setNull(1, Types.DOUBLE);
-                stmt.setNull(2, Types.DOUBLE);
-                stmt.setNull(3, Types.DOUBLE);
-                stmt.setNull(4, Types.VARCHAR);
-            }
-            
-            if (rest != null) {
-                stmt.setDouble(5, rest.getX());
-                stmt.setDouble(6, rest.getY());
-                stmt.setDouble(7, rest.getZ());
-                stmt.setString(8, rest.getWorld().getName());
-            } else {
-                stmt.setNull(5, Types.DOUBLE);
-                stmt.setNull(6, Types.DOUBLE);
-                stmt.setNull(7, Types.DOUBLE);
-                stmt.setNull(8, Types.VARCHAR);
-            }
-            
-            stmt.setLong(9, npc.getId());
-            stmt.executeUpdate();
-            
-        } catch (SQLException e) {
-            plugin.getLogger().severe("保存NPC位置失败: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
-    
+
     public void dismissWorker(NationNPC worker) {
         try (Connection conn = plugin.getDatabaseManager().getConnection()) {
             conn.setAutoCommit(false);
@@ -843,7 +815,7 @@ public class NPCManager {
         }
     }
 
-    // 修改保存单个NPC背包的方法，添加Connection参数
+    // 修改保存单个NPC背的方法，添加Connection参数
     private void saveNPCInventory(NationNPC npc, Connection conn) throws SQLException {
         // 先删除旧数据
         PreparedStatement deleteStmt = conn.prepareStatement(
@@ -907,5 +879,102 @@ public class NPCManager {
         }
         buildingNPCs.remove(building.getId());
         plugin.getLogger().info("已删除建筑 " + building.getId() + " 的所有NPC");
+    }
+
+    public void saveNPCLocations(NationNPC npc) {
+        try (Connection conn = plugin.getDatabaseManager().getConnection()) {
+            PreparedStatement stmt = conn.prepareStatement(
+                "UPDATE " + plugin.getDatabaseManager().getTablePrefix() + 
+                "npcs SET work_position_x = ?, work_position_y = ?, work_position_z = ?, " +
+                "work_position_world = ?, rest_position_x = ?, rest_position_y = ?, " +
+                "rest_position_z = ?, rest_position_world = ? WHERE id = ?"
+            );
+            
+            Location work = npc.getWorkPosition();
+            Location rest = npc.getRestPosition();
+            
+            if (work != null) {
+                stmt.setDouble(1, work.getX());
+                stmt.setDouble(2, work.getY());
+                stmt.setDouble(3, work.getZ());
+                stmt.setString(4, work.getWorld().getName());
+            } else {
+                stmt.setNull(1, Types.DOUBLE);
+                stmt.setNull(2, Types.DOUBLE);
+                stmt.setNull(3, Types.DOUBLE);
+                stmt.setNull(4, Types.VARCHAR);
+            }
+            
+            if (rest != null) {
+                stmt.setDouble(5, rest.getX());
+                stmt.setDouble(6, rest.getY());
+                stmt.setDouble(7, rest.getZ());
+                stmt.setString(8, rest.getWorld().getName());
+            } else {
+                stmt.setNull(5, Types.DOUBLE);
+                stmt.setNull(6, Types.DOUBLE);
+                stmt.setNull(7, Types.DOUBLE);
+                stmt.setNull(8, Types.VARCHAR);
+            }
+            
+            stmt.setLong(9, npc.getId());
+            stmt.executeUpdate();
+            
+            plugin.getLogger().info(String.format(
+                "已保存NPC %s 的位置信息 (工作位置: %s, 休息位置: %s)",
+                npc.getCitizensNPC().getName(),
+                work != null ? formatLocation(work) : "无",
+                rest != null ? formatLocation(rest) : "无"
+            ));
+            
+        } catch (SQLException e) {
+            plugin.getLogger().severe("保存NPC位置失败: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private String formatLocation(Location loc) {
+        return String.format("world=%s, x=%.2f, y=%.2f, z=%.2f",
+            loc.getWorld().getName(),
+            loc.getX(),
+            loc.getY(),
+            loc.getZ()
+        );
+    }
+
+    public void reloadNPCs() {
+        // 先保存所有NPC数据
+        saveAllNPCInventories();
+        
+        // 取消所有NPC的任务
+        for (NationNPC npc : npcs.values()) {
+            if (npc.getCitizensNPC().isSpawned()) {
+                npc.getCitizensNPC().despawn();
+            }
+        }
+        
+        // 清空缓存
+        npcs.clear();
+        buildingNPCs.clear();
+        
+        // 重新加载NPC数据
+        loadNPCs();
+        
+        // 重新生成所有NPC
+        for (NationNPC npc : npcs.values()) {
+            spawnNPC(npc);
+        }
+        
+        plugin.getLogger().info("已重新加载所有NPC");
+    }
+
+    public void updateNPCBehaviors() {
+        for (NationNPC npc : npcs.values()) {
+            if (npc.getCitizensNPC().isSpawned()) {
+                // 重新设置NPC的行为
+                setupNPCAI(npc);
+                plugin.getLogger().info("已更新NPC " + npc.getCitizensNPC().getName() + " 的行为");
+            }
+        }
     }
 }

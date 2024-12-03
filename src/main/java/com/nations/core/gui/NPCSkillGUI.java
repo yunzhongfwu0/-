@@ -113,6 +113,7 @@ public class NPCSkillGUI extends BaseGUI {
                 lore.add(ChatColor.AQUA + "当前效果:");
                 double effect = skillData.getEffectiveness();
                 switch (skill) {
+                    // 农民技能
                     case EFFICIENT_FARMING:
                         lore.add(ChatColor.AQUA + "- 生长速度和工作范围 +" + String.format("%.1f", effect * 100) + "%");
                         break;
@@ -122,7 +123,39 @@ public class NPCSkillGUI extends BaseGUI {
                     case CROP_EXPERT:
                         lore.add(ChatColor.AQUA + "- 稀有作物概率 +" + String.format("%.1f", effect * 100) + "%");
                         break;
-                    // ... 其他技能效果显示
+                    
+                    // 守卫技能
+                    case COMBAT_MASTERY:
+                        lore.add(ChatColor.AQUA + "- 攻击力 +" + String.format("%.1f", effect * 100) + "%");
+                        break;
+                    case DEFENSIVE_STANCE:
+                        lore.add(ChatColor.AQUA + "- 防御力 +" + String.format("%.1f", effect * 100) + "%");
+                        break;
+                    case PATROL_EFFICIENCY:
+                        lore.add(ChatColor.AQUA + "- 巡逻范围 +" + String.format("%.1f", effect) + " 格");
+                        break;
+                    
+                    // 商人技能
+                    case BARGAINING:
+                        lore.add(ChatColor.AQUA + "- 交易收益 +" + String.format("%.1f", effect * 100) + "%");
+                        break;
+                    case MARKET_INSIGHT:
+                        lore.add(ChatColor.AQUA + "- 解锁 " + String.format("%.0f", effect) + " 个新交易");
+                        break;
+                    case TRADE_NETWORK:
+                        lore.add(ChatColor.AQUA + "- 交易频率 +" + String.format("%.1f", effect * 100) + "%");
+                        break;
+                    
+                    // 管理者技能
+                    case LEADERSHIP:
+                        lore.add(ChatColor.AQUA + "- 工作效率 +" + String.format("%.1f", effect * 100) + "%");
+                        break;
+                    case RESOURCE_MANAGEMENT:
+                        lore.add(ChatColor.AQUA + "- 维护成本 -" + String.format("%.1f", effect * 100) + "%");
+                        break;
+                    case CRISIS_HANDLING:
+                        lore.add(ChatColor.AQUA + "- 防御和修复 +" + String.format("%.1f", effect * 100) + "%");
+                        break;
                 }
                 
                 // 升级信息

@@ -32,9 +32,7 @@ public class CropManageGUI extends BaseGUI {
             "§7- 收获物品存放在NPC背包",
             "",
             "§7工作效率: §f" + calculateEfficiency() + "%",
-            "§7总产量加成: §f" + (calculateWorkerBonus() + calculateLevelBonus()) + "%",
-            "",
-            "§e提示: §7右键NPC查看背包"
+            "§7总产量加成: §f" + (calculateWorkerBonus() + calculateLevelBonus()) + "%"
         ), null);
         
         // 返回按钮

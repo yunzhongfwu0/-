@@ -12,6 +12,7 @@ import com.nations.core.NationsCore;
 import com.nations.core.models.Transaction.TransactionType;
 
 import java.util.Map;
+import java.util.HashMap;
 
 @Getter
 @Setter
@@ -30,6 +31,7 @@ public class NationNPC {
     private Location restPosition;
     private Inventory inventory;
     private double baseEfficiency;
+    private final Map<String, Double> salaryModifiers = new HashMap<>();
 
     public NationNPC(long id, NPCType type, Building workplace, NPC citizensNPC) {
         this.id = id;
@@ -145,7 +147,14 @@ public class NationNPC {
     public void setState(WorkState state) { this.state = state; }
 
     public int getCurrentSalary() {
-        return (int)(type.getBaseSalary() * (1 + (level - 1) * 0.1));
+        double baseSalary = type.getBaseSalary() * (1 + (level - 1) * 0.1);
+        
+        // 应用所有修改器
+        for (double modifier : salaryModifiers.values()) {
+            baseSalary *= (1 + modifier);
+        }
+        
+        return (int)Math.max(1, baseSalary); // 确保工资至少为1
     }
 
     public void gainExperience(int amount) {
@@ -167,5 +176,13 @@ public class NationNPC {
         }
         
         return skills.get(skill);
+    }
+
+    public void addSalaryModifier(String source, double modifier) {
+        salaryModifiers.put(source, modifier);
+    }
+
+    public void removeSalaryModifier(String source) {
+        salaryModifiers.remove(source);
     }
 }

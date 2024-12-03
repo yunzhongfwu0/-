@@ -86,11 +86,34 @@ public class WorkerManageGUI extends BaseGUI {
 
     private void showWorkerDetails() {
         // 基本信息 - 简化显示
-        List<String> basicLore = Arrays.asList(
-            "§7类型: §f" + selectedNPC.getType().getDisplayName(),
-            "§7等级: §f" + selectedNPC.getLevel(),
-            "§7经验: §f" + selectedNPC.getExperience() + "/" + selectedNPC.getRequiredExperience()
-        );
+        List<String> basicLore = new ArrayList<>();
+        basicLore.add("§7类型: §f" + selectedNPC.getType().getDisplayName());
+        basicLore.add("§7等级: §f" + selectedNPC.getLevel());
+        basicLore.add("§7经验: §f" + selectedNPC.getExperience() + "/" + selectedNPC.getRequiredExperience());
+        
+        // 添加技能效果
+        if (selectedNPC.getType() == NPCType.MANAGER) {
+            basicLore.add("");
+            basicLore.add("§7技能效果:");
+            
+            // 领导力技能
+            NPCSkillData leadershipSkill = selectedNPC.getSkillData(NPCSkill.LEADERSHIP);
+            if (leadershipSkill != null && leadershipSkill.isUnlocked()) {
+                basicLore.add(String.format("§7- 领导力: §a+%.1f%%§7 工作效率", leadershipSkill.getEffectiveness() * 100));
+            }
+            
+            // 资源管理技能
+            NPCSkillData resourceSkill = selectedNPC.getSkillData(NPCSkill.RESOURCE_MANAGEMENT);
+            if (resourceSkill != null && resourceSkill.isUnlocked()) {
+                basicLore.add(String.format("§7- 资源管理: §a-%.1f%%§7 维护成本", resourceSkill.getEffectiveness() * 100));
+            }
+            
+            // 危机处理技能
+            NPCSkillData crisisSkill = selectedNPC.getSkillData(NPCSkill.CRISIS_HANDLING);
+            if (crisisSkill != null && crisisSkill.isUnlocked()) {
+                basicLore.add(String.format("§7- 危机处理: §a+%.1f%%§7 防御和修复", crisisSkill.getEffectiveness() * 100));
+            }
+        }
 
         setItem(4, createItem(selectedNPC.getType().getIcon(),
             "§6" + selectedNPC.getCitizensNPC().getName(),
@@ -151,17 +174,32 @@ public class WorkerManageGUI extends BaseGUI {
         List<String> locLore = Arrays.asList(
             "§7当前位置: §f" + formatLocation(selectedNPC.getWorkPosition()),
             "",
-            "§e点击传送"
+            "§e左键 - 传送到工作位置",
+            "§e右键 - 设置工作位置"
         );
 
         setItem(25, createItem(Material.COMPASS,
             "§6工作位置",
             locLore.toArray(new String[0])
-        ), p -> {
+        ), 
+        // 左键 - 传送
+        p -> {
             if (selectedNPC.getWorkPosition() != null) {
                 p.teleport(selectedNPC.getWorkPosition());
                 p.sendMessage(MessageUtil.success("已传送到工人工作位置"));
             }
+        },
+        // 右键 - 设置工作位置
+        p -> {
+            if (!building.getNation().hasPermission(p.getUniqueId(), "nation.admin")) {
+                p.sendMessage(MessageUtil.error("你没有权限设置工作位置！"));
+                return;
+            }
+            selectedNPC.setWorkPosition(p.getLocation());
+            plugin.getNPCManager().saveNPCLocations(selectedNPC);
+            p.sendMessage(MessageUtil.success("已设置工作位置为当前位置"));
+            // 重新打开GUI以更新显示
+            new WorkerManageGUI(plugin, p, building, selectedNPC).open();
         });
 
         // 解雇按钮

@@ -5,6 +5,7 @@ com\nations\core\utils\ChatInputManager$3.class
 com\nations\core\gui\building\BuildingInteractGUI.class
 com\nations\core\gui\MemberManageAdminGUI.class
 com\nations\core\npc\behaviors\FarmerBehavior$1.class
+com\nations\core\npc\behaviors\ManagerBehavior$3.class
 com\nations\core\gui\TerritoryManageGUI.class
 com\nations\core\utils\ParticleEffects$3.class
 com\nations\core\gui\MemberManageGUI.class
@@ -36,6 +37,7 @@ com\nations\core\managers\WorldManager.class
 com\nations\core\managers\NPCManager$4.class
 com\nations\core\gui\building\AutomationGUI.class
 com\nations\core\managers\NationManager.class
+com\nations\core\npc\behaviors\ManagerBehavior$4.class
 com\nations\core\models\BuildingType$1.class
 com\nations\core\utils\TaskManager.class
 com\nations\core\utils\GuiEffects$2.class
@@ -50,6 +52,7 @@ com\nations\core\utils\ChatInputManager$1$1.class
 com\nations\core\managers\NPCManager.class
 com\nations\core\gui\NPCManageGUI.class
 com\nations\core\gui\TerritoryExpandGUI.class
+com\nations\core\managers\NPCManager$5.class
 com\nations\core\models\NPCType.class
 com\nations\core\gui\NationInfoGUI.class
 com\nations\core\models\NationNPC.class
@@ -93,12 +96,14 @@ com\nations\core\utils\BuildingBorderUtil.class
 com\nations\core\npc\behaviors\ManagerBehavior.class
 com\nations\core\cache\CacheManager.class
 com\nations\core\gui\TransferGUI.class
+com\nations\core\npc\behaviors\ManagerBehavior$2.class
 com\nations\core\gui\AdminHelpGUI.class
 com\nations\core\models\NPCSkillData.class
 com\nations\core\utils\ChatInputManager$2.class
 com\nations\core\listeners\NPCInteractListener.class
 com\nations\core\models\BuildingType$4.class
 com\nations\core\models\WorkState.class
+com\nations\core\npc\behaviors\ManagerBehavior$1.class
 com\nations\core\utils\MessageUtil.class
 com\nations\core\utils\PerformanceMonitor.class
 com\nations\core\gui\BaseGUI$1.class

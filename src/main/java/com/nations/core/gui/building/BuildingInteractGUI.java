@@ -120,11 +120,25 @@ public class BuildingInteractGUI extends BaseGUI {
 
     private void initializeTownHallGUI() {
         // 市政厅特有功能
+        List<String> lore = new ArrayList<>();
+        lore.add("§7税收系统:");
+        lore.add("§7- 基础税收: §f10金币/小时/在线成员");
+        lore.add("§7- 当前税收加成: §f+" + (building.getLevel() * 5) + "%");
+        lore.add("");
+        lore.add("§7管理员效果:");
+        lore.add("§7- 每级增加2%税收效率");
+        lore.add("§7- 每级增加1%所有建筑效率");
+        lore.add("§7- 10%概率提升其他NPC心情");
+        lore.add("");
+        lore.add("§7成员管理:");
+        lore.add("§7- 自动记录成员活跃度");
+        lore.add("§7- 每级增加5个成员上限");
+        lore.add("");
+        lore.add("§e点击管理");
+        
         setItem(40, createItem(Material.BEACON,
             "§6市政厅管理",
-            "§7管理国家事务",
-            "",
-            "§e点击管理"
+            lore.toArray(new String[0])
         ), p -> {
             // TODO: 实现市政厅管理GUI
         });
