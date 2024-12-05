@@ -9,16 +9,18 @@ import org.bukkit.scheduler.BukkitRunnable;
 
 import com.nations.core.NationsCore;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
 public class BuildingFunction {
-    private final Building building;
     private final NationsCore plugin;
+    private final Building building;
     
     public BuildingFunction(Building building) {
-        this.building = building;
         this.plugin = NationsCore.getInstance();
+        this.building = building;
     }
     
     /**
@@ -34,114 +36,77 @@ public class BuildingFunction {
         }
     }
     
+    public int calculateFarmProduction(Building building) {
+        // 基础产量
+        int baseProduction = 10; // 基础每小时产10个
+        
+        // 获取工人效率
+        List<NationNPC> workers = plugin.getNPCManager().getBuildingWorkers(building);
+        double efficiency = workers.stream()
+            .mapToDouble(NationNPC::getEfficiency)
+            .average()
+            .orElse(0.0);
+        
+        // 效率加成改为最多增加50%产量
+        return (int) Math.ceil(baseProduction * building.getLevel() * (1 + efficiency * 0.5));
+    }
+    
     private void runFarmTask() {
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (!building.isValidBasic()) {
+                if (building == null || building.getType() != BuildingType.FARM || !building.isValidBasic()) {
                     cancel();
                     return;
                 }
                 
-                // 获取工作中的农民
-                List<NationNPC> workers = plugin.getNPCManager().getBuildingWorkers(building)
-                    .stream()
-                    .filter(npc -> npc.getState() == WorkState.WORKING)
-                    .collect(Collectors.toList());
-                
-                // 计算总效率
-                double totalEfficiency = workers.stream()
-                    .mapToDouble(NationNPC::getEfficiency)
-                    .sum();
-                
-                // 基础产量 * 效率加成
-                int production = (int)(10 * building.getLevel() * (1 + totalEfficiency));
-                
-                // 生成食物
-                ItemStack food = new ItemStack(Material.BREAD, production);
-                Location loc = building.getBaseLocation();
-                
-                // 记录生产信息
-                plugin.getLogger().info(String.format(
-                    "农场生产食物: 等级=%d, 工人效率=%.2f, 产量=%d",
-                    building.getLevel(),
-                    totalEfficiency,
-                    production
-                ));
-                
-                if (loc != null && loc.getWorld() != null) {
-                    // 让收割工运送食物
-                    workers.stream()
-                        .filter(npc -> npc.getType() == NPCType.FARMER)
-                        .findFirst()
-                        .ifPresentOrElse(
-                            harvester -> {
-                                // 让NPC移动到食物位置
-                                harvester.setState(WorkState.TRAVELING);
-                                harvester.getCitizensNPC().getNavigator().setTarget(loc);
-                                
-                                // 等NPC到达后再处理食物
-                                new BukkitRunnable() {
-                                    @Override
-                                    public void run() {
-                                        Building warehouse = findNearestWarehouse();
-                                        if (warehouse != null) {
-                                            // 运送到仓库
-                                            harvester.getCitizensNPC().getNavigator()
-                                                .setTarget(warehouse.getBaseLocation());
-                                            addToWarehouse(warehouse, food);
-                                            plugin.getLogger().info(String.format(
-                                                "农场食物已存入仓库: 数量=%d",
-                                                production
-                                            ));
-                                        } else {
-                                            loc.getWorld().dropItemNaturally(loc, food);
-                                            plugin.getLogger().info(String.format(
-                                                "农场食物已掉落: 数量=%d (未找到仓库)",
-                                                production
-                                            ));
-                                        }
-                                        harvester.setState(WorkState.WORKING);
-                                        harvester.gainExperience(production);
-                                    }
-                                }.runTaskLater(plugin, 60L);
-                            },
-                            () -> {
-                                loc.getWorld().dropItemNaturally(loc, food);
-                                plugin.getLogger().info(String.format(
-                                    "农场食物已掉落: 数量=%d (无农民运送)",
-                                    production
-                                ));
-                            }
-                        );
+                // 获取农民
+                List<NationNPC> workers = plugin.getNPCManager().getBuildingWorkers(building);
+                if (workers.isEmpty()) {
+                    return;
                 }
                 
-                // 农民获得经验
-                workers.forEach(npc -> npc.gainExperience(production / workers.size()));
+                int production = calculateFarmProduction(building);
+                
+                // 创建食物物品
+                ItemStack food = new ItemStack(Material.BREAD, production);
+                
+                // 寻找最近的仓库
+                Building warehouse = findNearestWarehouse();
+                if (warehouse != null) {
+                    // 尝试存入仓库
+                    if (tryAddToWarehouse(warehouse, food)) {
+                        plugin.getLogger().info(String.format(
+                            "农场生产的食物已存入仓库 %d: 数量=%d",
+                            warehouse.getId(), production
+                        ));
+                        
+                        // 农民获得经验
+                        workers.forEach(npc -> npc.gainExperience(production / workers.size()));
+                    } else {
+                        // 仓库已满,掉落在地上
+                        Location loc = building.getBaseLocation();
+                        loc.getWorld().dropItemNaturally(loc, food);
+                        plugin.getLogger().warning(String.format(
+                            "仓库 %d 已满,农场食物已掉落: 数量=%d",
+                            warehouse.getId(), production
+                        ));
+                    }
+                } else {
+                    // 找不到仓库,掉落在地上
+                    Location loc = building.getBaseLocation();
+                    loc.getWorld().dropItemNaturally(loc, food);
+                    plugin.getLogger().info(String.format(
+                        "农场食物已掉落: 数量=%d (未找到仓库)",
+                        production
+                    ));
+                }
             }
-        }.runTaskTimer(plugin, 0L, 72000); // 1小时 = 20ticks/s * 60s * 60min = 72000 ticks
+        }.runTaskTimer(plugin, 0L, 72000L); // 1小时 = 20ticks/s * 60s * 60min = 72000 ticks
     }
     
     private void runWarehouseTask() {
-        // 自动整理存储的物品
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (!building.isValidBasic()) {
-                    cancel();
-                    return;
-                }
-                
-                // 获取仓库容器
-                Location loc = building.getBaseLocation();
-                if (loc != null) {
-                    Block block = loc.getBlock();
-                    if (block.getState() instanceof Container container) {
-                        sortContainer(container);
-                    }
-                }
-            }
-        }.runTaskTimer(plugin, 0L, 1200L); // 每分钟
+        // 仓库的自动整理功能已移至仓库管理员NPC
     }
     
     private void runMarketTask() {
@@ -180,8 +145,50 @@ public class BuildingFunction {
             container.getInventory().addItem(item);
         }
     }
-    
-    private void sortContainer(Container container) {
-        // 实现物品分类逻辑
+    /**
+     * 尝试将物品添加到仓库
+     * @return 是否成功添加
+     */
+    private boolean tryAddToWarehouse(Building warehouse, ItemStack item) {
+        if (warehouse == null || warehouse.getType() != BuildingType.WAREHOUSE || !warehouse.isValidBasic()) {
+            return false;
+        }
+        
+        Location baseLoc = warehouse.getBaseLocation();
+        if (baseLoc == null || baseLoc.getWorld() == null) {
+            return false;
+        }
+        
+        // 先尝试放入主箱子
+        Location mainChestLoc = baseLoc.clone().add(0, 1, 0);
+        Block mainBlock = mainChestLoc.getBlock();
+        if (mainBlock.getState() instanceof Container mainContainer) {
+            HashMap<Integer, ItemStack> leftover = mainContainer.getInventory().addItem(item);
+            if (leftover.isEmpty()) {
+                return true;
+            }
+            // 如果主箱子放不下，尝试其他箱子
+            item = leftover.get(0);
+        }
+        
+        // 检查其他箱子
+        for (int x = -1; x <= 1; x++) {
+            for (int z = -1; z <= 1; z++) {
+                if (x == 0 && z == 0) continue; // 跳过主箱子
+                
+                Location chestLoc = baseLoc.clone().add(x, 1, z);
+                Block block = chestLoc.getBlock();
+                if (block.getState() instanceof Container container) {
+                    HashMap<Integer, ItemStack> leftover = container.getInventory().addItem(item);
+                    if (leftover.isEmpty()) {
+                        return true;
+                    }
+                    // 更新剩余物品
+                    item = leftover.get(0);
+                }
+            }
+        }
+        
+        return false;
     }
 }

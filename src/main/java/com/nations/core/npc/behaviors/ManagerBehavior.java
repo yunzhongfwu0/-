@@ -22,12 +22,12 @@ import org.bukkit.scheduler.BukkitTask;
 
 public class ManagerBehavior implements NPCBehavior {
     private static final Random random = new Random();
-    private static final int TAX_COLLECTION_INTERVAL = 72000; // 1小时
-    private static final int MEMBER_CHECK_INTERVAL = 12000; // 10分钟
+    private static final int TAX_COLLECTION_INTERVAL = 720000; // 1小时
+    private static final int MEMBER_CHECK_INTERVAL = 120000; // 10分钟
     private static final int MOVE_INTERVAL = 100; // 5秒
     private static final double INTERACTION_DISTANCE = 2.0;
-    private static final int WORK_DURATION = 1200; // 60秒工作时间
-    private static final int REST_DURATION = 400; // 20秒休息时间
+    private static final int WORK_DURATION = 12000; // 60秒工作时间
+    private static final int REST_DURATION = 4000; // 20秒休息时间
     
     private int stateTimer = 0;
     private BukkitTask taxCollectionTask;

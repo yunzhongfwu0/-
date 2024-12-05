@@ -21,7 +21,12 @@ public enum NPCSkill {
     // 管理者技能
     LEADERSHIP("领导力", "提高其他NPC的工作效率", Material.GOLDEN_HELMET, NPCType.MANAGER),
     RESOURCE_MANAGEMENT("资源管理", "降低NPC维护成本", Material.CHEST, NPCType.MANAGER),
-    CRISIS_HANDLING("危机处理", "提高建筑防御和修复速度", Material.BELL, NPCType.MANAGER);
+    CRISIS_HANDLING("危机处理", "提高建筑防御和修复速度", Material.BELL, NPCType.MANAGER),
+    
+    // 仓库管理员技能
+    ORGANIZATION("物品整理", "提高仓库整理效率", Material.HOPPER, NPCType.WAREHOUSE_KEEPER),
+    STORAGE_EXPERT("存储专家", "增加仓库存储容量", Material.BARREL, NPCType.WAREHOUSE_KEEPER),
+    LOGISTICS("物流管理", "提高物品存取速度", Material.MINECART, NPCType.WAREHOUSE_KEEPER);
 
     private final String displayName;
     private final String description;
@@ -88,6 +93,14 @@ public enum NPCSkill {
             case CRISIS_HANDLING:
                 return 0.05 * level; // 每级提高5%防御和修复
                 
+            // 仓库管理员技能
+            case ORGANIZATION:
+                return 0.05 * level; // 每级提高5%仓库整理效率
+            case STORAGE_EXPERT:
+                return 0.05 * level; // 每级提高5%仓库存储容量
+            case LOGISTICS:
+                return 0.05 * level; // 每级提高5%物品存取速度
+                
             default:
                 return 0;
         }
@@ -116,6 +129,12 @@ public enum NPCSkill {
             case TRADE_NETWORK:
             case CRISIS_HANDLING:
                 return 3000;
+                
+            // 仓库管理员技能
+            case ORGANIZATION:
+            case STORAGE_EXPERT:
+            case LOGISTICS:
+                return 2000;
                 
             default:
                 return 1000;

@@ -252,7 +252,8 @@ public class BuildingManager {
                 // 插入建筑记录
                 PreparedStatement stmt = conn.prepareStatement(
                     "INSERT INTO " + plugin.getDatabaseManager().getTablePrefix() + 
-                    "buildings (nation_id, type, level, world, x, y, z) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    "buildings (nation_id, type, level, world, x, y, z, created_time) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                     Statement.RETURN_GENERATED_KEYS
                 );
                 
@@ -263,6 +264,7 @@ public class BuildingManager {
                 stmt.setDouble(5, location.getX());
                 stmt.setDouble(6, location.getY());
                 stmt.setDouble(7, location.getZ());
+                stmt.setLong(8, System.currentTimeMillis() / 1000); // Unix时间戳(秒)
                 
                 stmt.executeUpdate();
                 
@@ -320,7 +322,7 @@ public class BuildingManager {
     }
     
     public void reloadBuildings() {
-        // 停止所有现有的建筑功能任务
+        // 停止所有现有的建功能任务
         for (Building building : buildings.values()) {
             if (building != null) {
                 // 取消旧的任务
@@ -476,6 +478,10 @@ public class BuildingManager {
         ));
         
         return building;
+    }
+    
+    public BuildingFunction getBuildingFunction(Building building) {
+        return new BuildingFunction(building);
     }
     
     // 其他方法...

@@ -3,6 +3,7 @@ package com.nations.core.npc.behaviors;
 import com.nations.core.NationsCore;
 import com.nations.core.models.NationNPC;
 import com.nations.core.models.WorkState;
+import com.nations.core.models.Building;
 import com.nations.core.models.NPCSkill;
 import com.nations.core.models.NPCSkillData;
 import com.nations.core.npc.NPCBehavior;
@@ -126,20 +127,37 @@ public class FarmerBehavior implements NPCBehavior {
         return distance <= INTERACTION_DISTANCE;
     }
 
-    private Block findMatureCrop(Location center, int radius, NationNPC npc) {
+    private int getWorkRadius(NationNPC npc) {
+        Building workplace = npc.getWorkplace();
+        if (workplace == null) return BASE_WORK_RADIUS;
+        
+        // 使用建筑尺寸的一半作为基础工作半径，向上取整以确保完全覆盖
+        int baseRadius = (int) Math.ceil(workplace.getSize() / 2.0);
+        
         // 获取高效种植技能效果来增加工作范围
         double efficiency = NationsCore.getInstance().getNPCSkillManager()
             .getSkillEffectiveness(npc, NPCSkill.EFFICIENT_FARMING);
-        int workRadius = radius + (int)(radius * efficiency);
+        
+        // 技能加成增加工作范围
+        int finalRadius = baseRadius + (int)(baseRadius * efficiency);
+        
+        return finalRadius;
+    }
 
-        // 使用增加后的范围寻找成熟作物
+    private Block findMatureCrop(Location center, int radius, NationNPC npc) {
+        int workRadius = getWorkRadius(npc);
+        Building workplace = npc.getWorkplace();
+
+        // 使用建筑实际大小的范围寻找成熟作物
         for (int x = -workRadius; x <= workRadius; x++) {
-            for (int z = -workRadius; z <= workRadius; z++) {
-                Block block = center.clone().add(x, 0, z).getBlock();
-                if (block.getBlockData() instanceof Ageable) {
-                    Ageable crop = (Ageable) block.getBlockData();
-                    if (crop.getAge() == crop.getMaximumAge()) {
-                        return block;
+            for (int y = -2; y <= 2; y++) {
+                for (int z = -workRadius; z <= workRadius; z++) {
+                    Block block = center.clone().add(x, y, z).getBlock();
+                    if (block.getBlockData() instanceof Ageable) {
+                        Ageable crop = (Ageable) block.getBlockData();
+                        if (crop.getAge() == crop.getMaximumAge()) {
+                            return block;
+                        }
                     }
                 }
             }
@@ -155,21 +173,21 @@ public class FarmerBehavior implements NPCBehavior {
     }
 
     private Location findEmptyFarmland(Location center, int radius, NationNPC npc) {
-        // 获取高效种植技能效果来增加工作范围
-        double efficiency = NationsCore.getInstance().getNPCSkillManager()
-            .getSkillEffectiveness(npc, NPCSkill.EFFICIENT_FARMING);
-        int workRadius = radius + (int)(radius * efficiency);
-        // 使用增加后的范围寻找空地
+        int workRadius = getWorkRadius(npc);
+        
+        // 使用建筑实际大小的范围寻找空地
         for (int x = -workRadius; x <= workRadius; x++) {
-            for (int z = -workRadius; z <= workRadius; z++) {
-                Location loc = center.clone().add(x, -1, z);
-                Block block = loc.getBlock();
+            for (int y = -2; y <= 2; y++) {
+                for (int z = -workRadius; z <= workRadius; z++) {
+                    Location loc = center.clone().add(x, y, z);
+                    Block block = loc.getBlock();
 
-                // 检查是否为空地
-                if (block.getType() == Material.FARMLAND) {
-                    Block above = block.getRelative(0, 1, 0);
-                    if (above.getType() == Material.AIR) {
-                        return loc;
+                    // 检查是否为空地
+                    if (block.getType() == Material.FARMLAND) {
+                        Block above = block.getRelative(0, 1, 0);
+                        if (above.getType() == Material.AIR) {
+                            return loc;
+                        }
                     }
                 }
             }
@@ -350,7 +368,7 @@ public class FarmerBehavior implements NPCBehavior {
         
         // 记录日志：没有找到种子
         NationsCore.getInstance().getLogger().info(
-            "农民没有种子可用"
+            "农民没种子可用"
         );
         return null;
     }
@@ -431,7 +449,7 @@ public class FarmerBehavior implements NPCBehavior {
             new ItemStack(Material.MELON_SEEDS, 8)
         );
         NationsCore.getInstance().getLogger().info(
-            "给予农民初始种子"
+            "给予农民初种子"
         );
     }
 
@@ -499,6 +517,10 @@ public class FarmerBehavior implements NPCBehavior {
     private void work(NationNPC npc) {
         if (npc.getWorkPosition() == null) return;
         
+        Location workPos = npc.getWorkPosition();
+        int workRadius = getWorkRadius(npc);
+        
+
         // 获取技能数据
         NPCSkillData efficientFarming = npc.getSkillData(NPCSkill.EFFICIENT_FARMING);
         NPCSkillData harvestMaster = npc.getSkillData(NPCSkill.HARVEST_MASTER);
@@ -514,12 +536,6 @@ public class FarmerBehavior implements NPCBehavior {
         double rareDropChance = cropExpert != null && cropExpert.isUnlocked() ? 
             NPCSkill.CROP_EXPERT.getEffectValue(cropExpert.getLevel()) * 0.4 : 0;
 
-        // 计算工作范围 (基础范围 + 技能加成)
-        int workRadius = BASE_WORK_RADIUS;
-        if (efficientFarming != null && efficientFarming.isUnlocked()) {
-            workRadius += Math.floor(efficientFarming.getLevel() * 0.3); // 降低范围增长
-        }
-
         // 计算能量消耗减免 (高等级农民更有效率)
         double energyEfficiency = 1.0;
         if (efficientFarming != null && efficientFarming.isUnlocked()) {
@@ -527,20 +543,18 @@ public class FarmerBehavior implements NPCBehavior {
             energyEfficiency = Math.max(0.7, energyEfficiency); // 最低消耗70%能量
         }
         
-        int blockX = npc.getWorkPosition().getBlockX();
-        int blockY = npc.getWorkPosition().getBlockY();
-        int blockZ = npc.getWorkPosition().getBlockZ();
+        // 遍历完整的3D��作空间
+        int checkedBlocks = 0;
+        int foundCrops = 0;
         
         for (int x = -workRadius; x <= workRadius; x++) {
             for (int y = -2; y <= 2; y++) {
                 for (int z = -workRadius; z <= workRadius; z++) {
-                    Block block = npc.getWorkPosition().getWorld().getBlockAt(
-                        blockX + x, 
-                        blockY + y, 
-                        blockZ + z
-                    );
+                    Block block = workPos.clone().add(x, y, z).getBlock();
+                    checkedBlocks++;
                     
                     if (block.getBlockData() instanceof Ageable) {
+                        foundCrops++;
                         Ageable crop = (Ageable) block.getBlockData();
                         
                         // 高效种植: 随机生长（降低概率）
@@ -568,7 +582,7 @@ public class FarmerBehavior implements NPCBehavior {
                         }
                         
                         // 收获成熟作物
-                        if (crop.getAge() == crop.getMaximumAge() && random.nextDouble() < 0.4) { // 降低自动收获概率
+                        if (crop.getAge() == crop.getMaximumAge() && random.nextDouble() < 0.4) {
                             // 收获大师: 增加产量（降低加成）
                             int baseDrops = 1;
                             int bonusDrops = (int)(baseDrops * (harvestBonus * 0.5));
@@ -612,5 +626,6 @@ public class FarmerBehavior implements NPCBehavior {
                 }
             }
         }
+        
     }
 }

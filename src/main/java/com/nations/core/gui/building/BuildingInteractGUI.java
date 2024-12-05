@@ -2,6 +2,7 @@ package com.nations.core.gui.building;
 
 import com.nations.core.NationsCore;
 import com.nations.core.gui.BaseGUI;
+import com.nations.core.gui.MainGUI;
 import com.nations.core.models.*;
 import com.nations.core.utils.MessageUtil;
 import org.bukkit.Material;
@@ -14,18 +15,19 @@ import java.util.Map;
 
 public class BuildingInteractGUI extends BaseGUI {
     private final Building building;
-
+    
     public BuildingInteractGUI(NationsCore plugin, Player player, Building building) {
         super(plugin, player, "§6建筑互动", 6);
         this.building = building;
         initialize();
     }
-
+    
     private void initialize() {
         fillBorder(Material.GRAY_STAINED_GLASS_PANE);
-
+        
         // 建筑详细信息
         List<String> buildingLore = new ArrayList<>();
+        buildingLore.add("§7类型: §f" + building.getType().getDisplayName());
         buildingLore.add("§7等级: §f" + building.getLevel());
         buildingLore.add("§7位置: §f" + String.format("%.1f, %.1f, %.1f", 
             building.getBaseLocation().getX(),
@@ -61,7 +63,7 @@ public class BuildingInteractGUI extends BaseGUI {
             p.sendMessage(MessageUtil.success("已传送到 " + building.getType().getDisplayName()));
             p.closeInventory();
         });
-
+        
         // 根据建筑类型添加特殊功能
         switch (building.getType()) {
             case FARM -> initializeFarmGUI();
@@ -70,6 +72,18 @@ public class BuildingInteractGUI extends BaseGUI {
             case WAREHOUSE -> initializeWarehouseGUI();
             case TOWN_HALL -> initializeTownHallGUI();
         }
+        
+        // 工人管理按钮
+        setItem(15, createItem(Material.VILLAGER_SPAWN_EGG,
+            "§6工人管理",
+            "§7管理建筑工人"
+        ), p -> new WorkerManageGUI(plugin, p, building).open());
+        
+        // 返回按钮
+        setItem(26, createItem(Material.ARROW,
+            "§f返回主菜单",
+            "§7点击返回"
+        ), p -> new MainGUI(plugin, p).open());
     }
 
     private void initializeFarmGUI() {
@@ -111,11 +125,12 @@ public class BuildingInteractGUI extends BaseGUI {
         setItem(40, createItem(Material.CHEST,
             "§6仓库管理",
             "§7管理仓库存储",
+            "§7- 查看存储物品",
+            "§7- 管理物品分类",
+            "§7- 监控存储容量",
             "",
             "§e点击管理"
-        ), p -> {
-            // TODO: 实现仓库管理GUI
-        });
+        ), p -> new WarehouseGUI(plugin, p, building).open());
     }
 
     private void initializeTownHallGUI() {

@@ -9,11 +9,11 @@ import org.bukkit.Material;
 import org.bukkit.World;
 
 public enum BuildingType {
-    TOWN_HALL("市政厅", 4, 1, null, 0, Material.BEACON),
-    BARRACKS("兵营", 4, 2, TOWN_HALL, 1, Material.IRON_SWORD),
-    MARKET("市场", 4, 2, TOWN_HALL, 1, Material.EMERALD),
-    WAREHOUSE("仓库", 3, 1, TOWN_HALL, 1, Material.CHEST),
-    FARM("农场", 5, 1, TOWN_HALL, 1, Material.WHEAT);
+    TOWN_HALL("市政厅", 5, 1, null, 0, Material.BEACON),
+    BARRACKS("兵营", 5, 2, TOWN_HALL, 1, Material.IRON_SWORD),
+    MARKET("市场", 7, 2, TOWN_HALL, 1, Material.EMERALD),
+    WAREHOUSE("仓库", 5, 1, TOWN_HALL, 1, Material.CHEST),
+    FARM("农场", 7, 1, TOWN_HALL, 1, Material.WHEAT);
 
     private final String displayName;
     private final int baseSize;
@@ -339,10 +339,13 @@ public enum BuildingType {
                     }
                 }
                 
-                // 箱子
+                // 主箱子(中心点)
+                world.getBlockAt(loc.clone().add(0, 1, 0)).setType(Material.CHEST);
+                
+                // 周围的箱子
                 for (int x = -1; x <= 1; x++) {
                     for (int z = -1; z <= 1; z++) {
-                        if (x == 0 && z == 0) continue;
+                        if (x == 0 && z == 0) continue; // 跳过中心点，因为已经放置了主箱子
                         world.getBlockAt(loc.clone().add(x, 1, z)).setType(Material.CHEST);
                     }
                 }
@@ -351,8 +354,7 @@ public enum BuildingType {
             @Override
             public Map<NPCType, Integer> getWorkerSlots() {
                 Map<NPCType, Integer> slots = new HashMap<>();
-                slots.put(NPCType.TRADER, 2);  // 2个商人负责管理仓库
-                slots.put(NPCType.MANAGER, 1); // 1个管理员负责监督
+                slots.put(NPCType.WAREHOUSE_KEEPER, 3);  // 3个仓库管理员
                 return slots;
             }
 
@@ -456,7 +458,7 @@ public enum BuildingType {
             @Override
             public List<Location> getWorkLocations(Location base) {
                 List<Location> locations = new ArrayList<>();
-                // 在农田各处添加工作位置
+                // 在田各处添加工作位置
                 for (int x = -2; x <= 2; x += 2) {
                     for (int z = -2; z <= 2; z += 2) {
                         locations.add(base.clone().add(x, 1, z));

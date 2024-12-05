@@ -11,6 +11,7 @@ import com.nations.core.npc.behaviors.FarmerBehavior;
 import com.nations.core.npc.behaviors.GuardBehavior;
 import com.nations.core.npc.behaviors.ManagerBehavior;
 import com.nations.core.npc.behaviors.TraderBehavior;
+import com.nations.core.npc.behaviors.WarehouseKeeperBehavior;
 
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.ai.Navigator;
@@ -47,7 +48,7 @@ public class NPCManager {
     private final Map<Long, NationNPC> npcs = new HashMap<>();
     private final Map<Long, Set<NationNPC>> buildingNPCs = new HashMap<>();
     private boolean loaded = false;
-    private final Map<Long, Long> lastWorkCheckTime = new HashMap<>();  // 记录上次检查工作的时间
+    private final Map<Long, Long> lastWorkCheckTime = new HashMap<>();  // 记录���次检查工作的时间
     private static final long WORK_CHECK_INTERVAL = 30 * 20L;  // 30秒 * 20ticks
     private final Map<NPCType, NPCBehavior> behaviors = new HashMap<>();
     private final Map<Long, Long> lastUpdateTime = new HashMap<>();
@@ -60,6 +61,7 @@ public class NPCManager {
         behaviors.put(NPCType.GUARD, new GuardBehavior());
         behaviors.put(NPCType.TRADER, new TraderBehavior());
         behaviors.put(NPCType.MANAGER, new ManagerBehavior());
+        behaviors.put(NPCType.WAREHOUSE_KEEPER, new WarehouseKeeperBehavior());
         
         startNPCTasks();
     }
@@ -92,7 +94,7 @@ public class NPCManager {
                         building.getNation().getName())
                 );
 
-                // 创建NPC记录
+                // 创建NPC记��
                 PreparedStatement stmt = conn.prepareStatement(
                     "INSERT INTO " + plugin.getDatabaseManager().getTablePrefix() + 
                     "npcs (building_id, type, citizens_id) VALUES (?, ?, ?)",
@@ -122,7 +124,7 @@ public class NPCManager {
                     // 生成 NPC 实体
                     spawnNPC(npc);
                     
-                    conn.commit(); // 提交事务
+                    conn.commit(); // 提��事务
                     return npc;
                 }
             } catch (SQLException e) {
@@ -156,7 +158,7 @@ public class NPCManager {
             );
             
             stmt.setLong(1, npc.getId());
-            stmt.setInt(2, 0); // 放在第一个槽位
+            stmt.setInt(2, 0); // 放在第一个槽��
             stmt.setString(3, Material.WHEAT_SEEDS.name());
             stmt.setInt(4, 64);
             stmt.executeUpdate();
@@ -179,6 +181,10 @@ public class NPCManager {
                 break;
             case MANAGER:
                 equipment.set(Equipment.EquipmentSlot.HELMET, new ItemStack(Material.GOLDEN_HELMET));
+                break;
+            case WAREHOUSE_KEEPER:
+                equipment.set(Equipment.EquipmentSlot.CHESTPLATE, new ItemStack(Material.LEATHER_CHESTPLATE));
+                equipment.set(Equipment.EquipmentSlot.HAND, new ItemStack(Material.CHEST));
                 break;
         }
     }
@@ -467,22 +473,6 @@ public class NPCManager {
             }
         }.runTaskTimer(plugin, 6000L, 6000L); // 每5分钟保存一次
         
-        // NPC状态更新任务
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (!loaded) return;
-                
-                for (NationNPC npc : npcs.values()) {
-                    try {
-                        updateNPCState(npc);
-                    } catch (Exception e) {
-                        plugin.getLogger().warning("更新NPC状态时发生错误: " + e.getMessage());
-                        e.printStackTrace();
-                    }
-                }
-            }
-        }.runTaskTimer(plugin, 20L, 20L); // 每秒更新一次NPC状态
     }
     
     private void updateNPCState(NationNPC npc) {
@@ -501,7 +491,7 @@ public class NPCManager {
             // 更新头顶显示
             updateHologram(npc, energy);
 
-            // 如果不是工作时间，强制进入休息状态
+            // 如果不工作时间，强制进入休息状态
             if (!isWorkTime && npc.getState() != WorkState.RESTING) {
                 npc.setState(WorkState.RESTING);
                 plugin.getLogger().info(String.format(

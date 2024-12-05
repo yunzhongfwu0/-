@@ -12,7 +12,8 @@ public enum NPCType {
     MINER("矿工", "开采矿物资源", Material.IRON_PICKAXE, 55, 1),
     BUILDER("建筑师", "加速建筑建造", Material.BRICK, 80, 2),
     RESEARCHER("研究员", "提升科技发展", Material.BOOK, 90, 3),
-    DIPLOMAT("外交官", "处理国家外交", Material.PAPER, 85, 3);
+    DIPLOMAT("外交官", "处理国家外交", Material.PAPER, 85, 3),
+    WAREHOUSE_KEEPER("仓库管理员", "管理仓库物品", Material.CHEST, 65, 2);
 
     private final String displayName;
     private final String description;

@@ -14,6 +14,7 @@ D:\我的世界国家插件\Nation\src\main\java\com\nations\core\commands\NationAdminCo
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\TerritoryDetailGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\RankSelectGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\building\BuildingDetailGUI.java
+D:\我的世界国家插件\Nation\src\main\java\com\nations\core\npc\behaviors\WarehouseKeeperBehavior.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\utils\HologramUtil.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\AdminGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\MainGUI.java
@@ -60,6 +61,7 @@ D:\我的世界国家插件\Nation\src\main\java\com\nations\core\commands\NationCommand
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\managers\ConfigManager.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\AdminHelpGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\listeners\TerritoryProtectionListener.java
+D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\building\WarehouseGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\CostSettingsGUI.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\database\ConnectionPool.java
 D:\我的世界国家插件\Nation\src\main\java\com\nations\core\gui\building\WorkerDetailGUI.java
