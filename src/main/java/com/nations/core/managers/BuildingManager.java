@@ -18,6 +18,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.World;
 import org.bukkit.Particle;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -30,6 +31,7 @@ public class BuildingManager {
     private final NationsCore plugin;
     private final Map<Long, Building> buildings = new HashMap<>();
     private final Map<Long, Set<Building>> buildingsByNation = new HashMap<>();
+    private final Map<Long, BukkitTask> updateTasks = new HashMap<>();
     
     public BuildingManager(NationsCore plugin) {
         this.plugin = plugin;
@@ -38,8 +40,16 @@ public class BuildingManager {
     
     private void loadBuildings() {
         try (Connection conn = plugin.getDatabaseManager().getConnection()) {
+            // 取消所有更新任务
+            updateTasks.values().forEach(BukkitTask::cancel);
+            updateTasks.clear();
+            
+            // 清除所有缓存
             buildings.clear();
             buildingsByNation.clear();
+            
+            // 清除所有全息文字
+            HologramUtil.clearAllHolograms();
             
             PreparedStatement stmt = conn.prepareStatement(
                 "SELECT * FROM " + plugin.getDatabaseManager().getTablePrefix() + "buildings"
@@ -52,9 +62,10 @@ public class BuildingManager {
                     buildings.put(building.getId(), building);
                     buildingsByNation.computeIfAbsent(building.getNationId(), k -> new HashSet<>())
                         .add(building);
-                    
-                    // 初始化建筑功能
-                    new BuildingFunction(building).runTasks();
+                        
+                    // 创建全息显示并启动更新任务
+                    HologramUtil.createBuildingHologram(building);
+                    startBuildingUpdateTask(building);
                 }
             }
             
@@ -64,6 +75,31 @@ public class BuildingManager {
             plugin.getLogger().severe("加载建筑数据失败: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+    
+    private void startBuildingUpdateTask(Building building) {
+        BukkitTask oldTask = updateTasks.remove(building.getId());
+        if (oldTask != null) {
+            oldTask.cancel();
+        }
+        
+        BukkitTask task = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!building.isValidBasic()) {
+                    cancel();
+                    updateTasks.remove(building.getId());
+                    HologramUtil.removeBuildingHologram(building.getBaseLocation().clone().add(0, 2, 0));
+                    return;
+                }
+                
+                building.updateBonuses();
+                
+                HologramUtil.updateHologram(building);
+            }
+        }.runTaskTimer(plugin, 0L, 20L * 5);
+        
+        updateTasks.put(building.getId(), task);
     }
     
     private boolean checkRequirements(Nation nation, BuildingType type, Player player) {
@@ -80,7 +116,7 @@ public class BuildingManager {
             Building required = nation.getBuilding(type.getRequiredBuilding());
             if (required == null || required.getLevel() < type.getRequiredBuildingLevel()) {
                 player.sendMessage(MessageUtil.error("建造失败！缺少前置建筑："));
-                player.sendMessage(MessageUtil.error("- 需要建筑: " + type.getRequiredBuilding().getDisplayName() + 
+                player.sendMessage(MessageUtil.error("- 需建筑: " + type.getRequiredBuilding().getDisplayName() + 
                     " Lv." + type.getRequiredBuildingLevel()));
                 if (required != null) {
                     player.sendMessage(MessageUtil.error("- 当前等级: Lv." + required.getLevel()));
@@ -294,12 +330,16 @@ public class BuildingManager {
                     
                     // 创建全息显示
                     HologramUtil.createBuildingHologram(building);
-
+                    
+                    // 启动更新任务
+                    startBuildingUpdateTask(building);
+                    
                     // 初始化建筑功能
                     new BuildingFunction(building).runTasks();
+                    
                     // 显示建筑边界
                     BuildingBorderUtil.showBuildingBorder(building);
-
+                    
                     // 发送成功消息
                     owner.sendMessage(MessageUtil.success("建造成功！"));
                     
@@ -322,92 +362,60 @@ public class BuildingManager {
     }
     
     public void reloadBuildings() {
-        // 停止所有现有的建功能任务
-        for (Building building : buildings.values()) {
-            if (building != null) {
-                // 取消旧的任务
-                plugin.getServer().getScheduler().cancelTasks(plugin);
-            }
-        }
+        updateTasks.values().forEach(BukkitTask::cancel);
+        updateTasks.clear();
         
-        // 重新加载建筑
         loadBuildings();
     }
     
     public boolean demolishBuilding(Nation nation, Building building) {
-        // 检查权限
-        if (!building.getNation().equals(nation)) {
-            return false;
-        }
-
-        try {
-            try (Connection conn = plugin.getDatabaseManager().getConnection()) {
-                conn.setAutoCommit(false);
-                try {
-                    // 获取建筑位置的世界
-                    Location location = building.getBaseLocation();
-                    World world = location != null ? location.getWorld() : null;
-                    
-                    // 只有在世界有效时才执行清理操作
-                    if (world != null) {
-                        // 移除全息显示
-                        HologramUtil.removeBuildingHologram(location);
-                        
-                        // 移除边界显示
-                        BuildingBorderUtil.removeBuildingBorder(building);
-                        
-                        // 移除相关NPC
-                        plugin.getNPCManager().removeAllBuildingNPCs(building);
-                        
-                        // 清除建筑结构
-                        int halfSize = building.getSize() / 2;
-                        for (int x = -halfSize; x <= halfSize; x++) {
-                            for (int z = -halfSize; z <= halfSize; z++) {
-                                for (int y = 0; y < 10; y++) {
-                                    location.clone().add(x, y, z).getBlock().setType(Material.AIR);
-                                }
-                            }
-                        }
-                        
-                        // 返还部分资源
-                        Map<Material, Integer> costs = building.getType().getBuildCosts();
-                        costs.forEach((material, amount) -> {
-                            int refund = (int)(amount * 0.5);
-                            ItemStack refundItem = new ItemStack(material, refund);
-                            world.dropItemNaturally(location, refundItem);
-                        });
-                    }
-                    
-                    // 从数据库中删除建筑记录
-                    PreparedStatement stmt = conn.prepareStatement(
-                        "DELETE FROM " + plugin.getDatabaseManager().getTablePrefix() + 
-                        "buildings WHERE id = ?"
-                    );
-                    stmt.setLong(1, building.getId());
-                    stmt.executeUpdate();
-                    
-                    // 从国家中移除建筑
-                    nation.removeBuilding(building);
-                    
-                    // 从缓存中移除
-                    buildings.remove(building.getId());
-                    
-                    conn.commit();
-                    return true;
-                } catch (SQLException e) {
-                    conn.rollback();
-                    throw e;
+        try (Connection conn = plugin.getDatabaseManager().getConnection()) {
+            // 1. 删除建筑前的清理工作
+            switch (building.getType()) {
+                case BARRACKS -> {
+                    // 清除该兵营的训练状态
+                    plugin.getSoldierManager().clearTrainingByBarracks(building);
                 }
-            } catch (SQLException e) {
-                plugin.getLogger().warning("拆除建筑失败: " + e.getMessage());
-                e.printStackTrace();
-                return false;
+                case MARKET -> {
+                    // 取消所有交易
+                    plugin.getTradeManager().cancelTradesByBuilding(building);
+                }
+                case WAREHOUSE -> {
+                    // 清空仓库物品
+                    plugin.getStorageManager().clearStorage(building);
+                }
+                case FARM -> {
+                    // 停止农场生产
+                    plugin.getBuildingManager().getBuildingFunction(building).stopProduction();
+                }
             }
-        } catch (Exception e) {
-            plugin.getLogger().severe("拆除建筑失败: " + e.getMessage());
+
+            // 2. 删除建筑数据
+            PreparedStatement stmt = conn.prepareStatement(
+                "DELETE FROM " + plugin.getDatabaseManager().getTablePrefix() + 
+                "buildings WHERE id = ? AND nation_id = ?"
+            );
+            stmt.setLong(1, building.getId());
+            stmt.setLong(2, nation.getId());
+            
+            if (stmt.executeUpdate() > 0) {
+                // 3. 删除全息文字
+                HologramUtil.removeHologram(building);
+                
+                // 4. 解雇所有工人
+                plugin.getNPCManager().dismissAllWorkers(building);
+                
+                // 5. 从缓存中移除
+                buildings.remove(building.getId());
+                buildingsByNation.get(nation.getId()).remove(building);
+                
+                return true;
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().severe("删除建筑失败: " + e.getMessage());
             e.printStackTrace();
-            return false;
         }
+        return false;
     }
     
     public void saveBuilding(Building building) {
@@ -438,7 +446,7 @@ public class BuildingManager {
         // 先获取国家
         Nation nation = plugin.getNationManager().getNationById(nationId);
         if (nation == null) {
-            plugin.getLogger().warning("找不到ID为 " + nationId + " 的国家，跳过加载建筑 " + id);
+            plugin.getLogger().warning("找不到ID为 " + nationId + " 的国家，跳过加载筑 " + id);
             return null;
         }
         
@@ -482,6 +490,48 @@ public class BuildingManager {
     
     public BuildingFunction getBuildingFunction(Building building) {
         return new BuildingFunction(building);
+    }
+    
+    public Building getNearestBuilding(Location location, BuildingType type, int maxDistance) {
+        Building nearest = null;
+        double minDistance = maxDistance;
+        
+        for (Building building : buildings.values()) {
+            if (building.getType() == type && 
+                building.getBaseLocation().getWorld().equals(location.getWorld())) {
+                double distance = building.getBaseLocation().distance(location);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nearest = building;
+                }
+            }
+        }
+        
+        return nearest;
+    }
+    
+    public void onDisable() {
+        // 取消所有更新任务
+        updateTasks.values().forEach(BukkitTask::cancel);
+        updateTasks.clear();
+        
+        // 清除所有全息文字
+        HologramUtil.clearAllHolograms();
+    }
+    
+    public void cancelUpdateTask(Building building) {
+        BukkitTask task = updateTasks.remove(building.getId());
+        if (task != null) {
+            task.cancel();
+        }
+    }
+    
+    public void clearNationBuildings(Nation nation) {
+        // 清除该国家的所有建筑缓存
+        Set<Building> nationBuildings = buildingsByNation.remove(nation.getId());
+        if (nationBuildings != null) {
+            nationBuildings.forEach(building -> buildings.remove(building.getId()));
+        }
     }
     
     // 其他方法...

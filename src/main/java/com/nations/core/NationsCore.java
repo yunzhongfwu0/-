@@ -4,6 +4,7 @@ import com.nations.core.managers.ConfigManager;
 import com.nations.core.managers.DatabaseManager;
 import com.nations.core.managers.NationManager;
 import com.nations.core.commands.NationCommand;
+import com.nations.core.commands.SoldierCommands;
 import com.nations.core.cache.CacheManager;
 import com.nations.core.commands.NationAdminCommand;
 import com.nations.core.listeners.TerritoryProtectionListener;
@@ -21,6 +22,10 @@ import com.nations.core.listeners.CitizensLoadListener;
 import com.nations.core.listeners.NPCInteractListener;
 import com.nations.core.managers.NPCSkillManager;
 import com.nations.core.listeners.BuildingProtectionListener;
+import com.nations.core.managers.SoldierManager;
+import com.nations.core.listeners.SoldierGUIListener;
+import com.nations.core.managers.TradeManager;
+import com.nations.core.managers.StorageManager;
 
 import lombok.Getter;
 import net.milkbowl.vault.economy.Economy;
@@ -40,6 +45,9 @@ public class NationsCore extends JavaPlugin {
     private WorldManager worldManager;
     private NPCManager npcManager;
     private NPCSkillManager npcSkillManager;
+    private SoldierManager soldierManager;
+    private TradeManager tradeManager;
+    private StorageManager storageManager;
 
     @Override
     public void onEnable() {
@@ -59,7 +67,7 @@ public class NationsCore extends JavaPlugin {
         // 初始化数据库连接池
         this.databaseManager = new DatabaseManager(this);
         if (!this.databaseManager.connect()) {
-            getLogger().severe("数据库连接失败！插件将被禁用！");
+            getLogger().severe("据库连接失败！插件将被禁用！");
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
@@ -76,11 +84,15 @@ public class NationsCore extends JavaPlugin {
         
         // 初始化其他管理器
         this.nationManager = new NationManager(this);
+        this.soldierManager = new SoldierManager(this);
         this.buildingManager = new BuildingManager(this);
         this.npcManager = new NPCManager(this);
         this.npcSkillManager = new NPCSkillManager(this);
-        this.npcSkillManager.createTables();
-        this.npcSkillManager.loadSkills();
+        this.tradeManager = new TradeManager(this);
+        this.storageManager = new StorageManager(this);
+        
+        // 在所有管理器初始化完成后加载士兵数据
+        this.soldierManager.load();
         
         // 初始化任务管理器
         TaskManager.init(this);
@@ -91,7 +103,7 @@ public class NationsCore extends JavaPlugin {
         // 初始化物品名称工具
         ItemNameUtil.init(this);
         
-        // 注册命令和监听器
+        // 注册令和监听器
         registerCommands();
         registerListeners();
         
@@ -112,9 +124,14 @@ public class NationsCore extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (buildingManager != null) {
+            buildingManager.onDisable();
+        }
+        
         if (npcManager != null) {
             npcManager.onDisable();
         }
+        
         // 关闭任务管理器
         TaskManager.shutdown();
         
@@ -132,14 +149,16 @@ public class NationsCore extends JavaPlugin {
     private void registerCommands() {
         getCommand("nation").setExecutor(new NationCommand(this));
         getCommand("nadmin").setExecutor(new NationAdminCommand(this));
+        getCommand("soldier").setExecutor(new SoldierCommands(this));
     }
 
     private void registerListeners() {
-        getServer().getPluginManager().registerEvents(new GUIListener(), this);
+        getServer().getPluginManager().registerEvents(new GUIListener(this), this);
         getServer().getPluginManager().registerEvents(new TerritoryProtectionListener(this), this);
         getServer().getPluginManager().registerEvents(new ChatInputListener(), this);
         getServer().getPluginManager().registerEvents(new NPCInteractListener(this), this);
         getServer().getPluginManager().registerEvents(new BuildingProtectionListener(this), this);
+        getServer().getPluginManager().registerEvents(new SoldierGUIListener(this), this);
     }
 
     private boolean setupEconomy() {
@@ -191,5 +210,17 @@ public class NationsCore extends JavaPlugin {
 
     public NPCSkillManager getNPCSkillManager() {
         return npcSkillManager;
+    }
+
+    public SoldierManager getSoldierManager() {
+        return soldierManager;
+    }
+
+    public TradeManager getTradeManager() {
+        return tradeManager;
+    }
+
+    public StorageManager getStorageManager() {
+        return storageManager;
     }
 } 

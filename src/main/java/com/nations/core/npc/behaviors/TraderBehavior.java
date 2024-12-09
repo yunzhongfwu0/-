@@ -1,6 +1,7 @@
 package com.nations.core.npc.behaviors;
 
 import com.nations.core.npc.NPCBehavior;
+import com.nations.core.NationsCore;
 import com.nations.core.models.NationNPC;
 import com.nations.core.models.WorkState;
 import org.bukkit.Material;
@@ -14,11 +15,26 @@ import java.util.List;
 import net.citizensnpcs.api.trait.trait.Equipment;
 import net.citizensnpcs.api.trait.trait.Equipment.EquipmentSlot;
 
-public class TraderBehavior implements NPCBehavior {
+public class TraderBehavior extends AbstractNPCBehavior {
 
     @Override
     public void performWork(NationNPC npc) {
-        if(npc.getState() != WorkState.WORKING) return;
+        // 添加调试日志
+        NationsCore.getInstance().getLogger().info(String.format(
+            "商人 %s 执行工作检查, 当前状态: %s, 体力: %d, 时间: %d",
+            npc.getCitizensNPC().getName(),
+            npc.getState(),
+            npc.getEnergy(),
+            npc.getCitizensNPC().getEntity().getWorld().getTime()
+        ));
+
+        if(npc.getState() != WorkState.WORKING) {
+            NationsCore.getInstance().getLogger().info(String.format(
+                "商人 %s 不在工作状态，跳过工作", 
+                npc.getCitizensNPC().getName()
+            ));
+            return;
+        }
         
         // 更新交易列表
         updateTrades(npc);

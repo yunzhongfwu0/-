@@ -7,6 +7,7 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class Nation {
     private final NationsCore plugin;
@@ -299,7 +300,7 @@ public class Nation {
         buildings.remove(building);
     }
     
-    // 获取建筑加成
+    // 获取建���加成
     public double getBuildingBonus(String bonusType) {
         return buildings.stream()
             .mapToDouble(b -> b.getBonuses().getOrDefault(bonusType, 0.0))
@@ -319,7 +320,6 @@ public class Nation {
         
         // 计算建筑加成
         int buildingBonus = (int)getBuildingBonus("max_members");
-        
         return baseLimit + buildingBonus;
     }
     
@@ -379,5 +379,11 @@ public class Nation {
     public boolean isActiveMember(UUID playerId) {
         long lastActive = getLastActivity(playerId);
         return (System.currentTimeMillis() - lastActive) < (7 * 24 * 60 * 60 * 1000);
+    }
+
+    public Set<Building> getBuildingsByType(BuildingType type) {
+        return buildings.stream()
+            .filter(b -> b.getType() == type)
+            .collect(Collectors.toSet());
     }
 } 

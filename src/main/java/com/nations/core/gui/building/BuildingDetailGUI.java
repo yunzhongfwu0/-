@@ -95,10 +95,109 @@ public class BuildingDetailGUI extends BaseGUI {
         lore.add("§7类型: §f" + building.getType().getDisplayName());
         lore.add("§7等级: §f" + building.getLevel());
         lore.add("");
-        lore.add("§7效果:");
-        building.getBonuses().forEach((key, value) -> 
-            lore.add("§7- " + formatBonus(key, value))
-        );
+        lore.add("§7建筑加成:");
+        
+        // 获取基础加成和等级加成
+        Map<String, Double> baseBonuses = building.getType().getBaseBonus();
+        Map<String, Double> levelBonuses = building.getType().getLevelBonus();
+        
+        switch (building.getType()) {
+            case TOWN_HALL -> {
+                double baseTax = baseBonuses.getOrDefault("tax_rate", 0.0) * 100;
+                double levelTax = levelBonuses.getOrDefault("tax_rate", 0.0) * (building.getLevel() - 1) * 100;
+                double baseMembers = baseBonuses.getOrDefault("max_members", 0.0);
+                double levelMembers = levelBonuses.getOrDefault("max_members", 0.0) * (building.getLevel() - 1);
+                
+                lore.add(String.format("§7- 基础税率: §f+%.1f%%", baseTax));
+                if (levelTax > 0) lore.add(String.format("§7- 等级加成: §f+%.1f%%", levelTax));
+                lore.add(String.format("§7- 基础人口上限: §f%.0f", baseMembers));
+                if (levelMembers > 0) lore.add(String.format("§7- 等级加成: §f+%.0f", levelMembers));
+            }
+            case BARRACKS -> {
+                double baseSlots = baseBonuses.getOrDefault("training_slots", 0.0);
+                double levelSlots = levelBonuses.getOrDefault("training_slots", 0.0) * (building.getLevel() - 1);
+                double baseBonusTraining = baseBonuses.getOrDefault("training_bonus", 0.0) * 100;
+                double levelBonusTraining = levelBonuses.getOrDefault("training_bonus", 0.0) * (building.getLevel() - 1) * 100;
+                double baseSpeed = baseBonuses.getOrDefault("training_speed", 0.0) * 100;
+                double levelSpeed = levelBonuses.getOrDefault("training_speed", 0.0) * (building.getLevel() - 1) * 100;
+                double baseStrength = baseBonuses.getOrDefault("strength", 0.0);
+                double levelStrength = levelBonuses.getOrDefault("strength", 0.0) * (building.getLevel() - 1);
+                double baseDefense = baseBonuses.getOrDefault("defense", 0.0);
+                double levelDefense = levelBonuses.getOrDefault("defense", 0.0) * (building.getLevel() - 1);
+                
+                lore.add(String.format("§7- 基础训练位: §f%.0f", baseSlots));
+                if (levelSlots > 0) lore.add(String.format("§7- 等级加成: §f+%.0f", levelSlots));
+                lore.add(String.format("§7- 基础训练加成: §f+%.1f%%", baseBonusTraining));
+                if (levelBonusTraining > 0) lore.add(String.format("§7- 等级加成: §f+%.1f%%", levelBonusTraining));
+                lore.add(String.format("§7- 基础训练速度: §f-%.1f%%", baseSpeed));
+                if (levelSpeed > 0) lore.add(String.format("§7- 等级加成: §f-%.1f%%", levelSpeed));
+                lore.add(String.format("§7- 基础战斗力: §f+%.1f", baseStrength));
+                if (levelStrength > 0) lore.add(String.format("§7- 等级加成: §f+%.1f", levelStrength));
+                lore.add(String.format("§7- 基础防御力: §f+%.1f", baseDefense));
+                if (levelDefense > 0) lore.add(String.format("§7- 等级加成: §f+%.1f", levelDefense));
+            }
+            case MARKET -> {
+                double baseDiscount = baseBonuses.getOrDefault("trade_discount", 0.0) * 100;
+                double levelDiscount = levelBonuses.getOrDefault("trade_discount", 0.0) * (building.getLevel() - 1) * 100;
+                double baseIncome = baseBonuses.getOrDefault("income_bonus", 0.0) * 100;
+                double levelIncome = levelBonuses.getOrDefault("income_bonus", 0.0) * (building.getLevel() - 1) * 100;
+                
+                lore.add(String.format("§7- 基础交易折扣: §f%.1f%%", baseDiscount));
+                if (levelDiscount > 0) lore.add(String.format("§7- 等级加成: §f+%.1f%%", levelDiscount));
+                lore.add(String.format("§7- 基础收入加成: §f+%.1f%%", baseIncome));
+                if (levelIncome > 0) lore.add(String.format("§7- 等级加成: §f+%.1f%%", levelIncome));
+            }
+            case WAREHOUSE -> {
+                double baseStorage = baseBonuses.getOrDefault("storage_size", 0.0);
+                double levelStorage = levelBonuses.getOrDefault("storage_size", 0.0) * (building.getLevel() - 1);
+                
+                lore.add(String.format("§7- 基础存储容量: §f%.0f", baseStorage));
+                if (levelStorage > 0) lore.add(String.format("§7- 等级加成: §f+%.0f", levelStorage));
+            }
+            case FARM -> {
+                double baseProduction = baseBonuses.getOrDefault("food_production", 0.0);
+                double levelProduction = levelBonuses.getOrDefault("food_production", 0.0) * (building.getLevel() - 1);
+                
+                lore.add(String.format("§7- 基础食物产量: §f%.0f/小时", baseProduction));
+                if (levelProduction > 0) lore.add(String.format("§7- 等级加成: §f+%.0f/小时", levelProduction));
+            }
+        }
+        
+        // 显示总加成
+        lore.add("");
+        lore.add("§e当前总加成:");
+        Map<String, Double> finalBonuses = building.getBonuses();
+        switch (building.getType()) {
+            case TOWN_HALL -> {
+                lore.add(String.format("§7- 总税率: §f+%.1f%%", finalBonuses.getOrDefault("tax_rate", 0.0) * 100));
+                lore.add(String.format("§7- 总人口上限: §f%.0f", finalBonuses.getOrDefault("max_members", 0.0)));
+            }
+            case BARRACKS -> {
+                lore.add(String.format("§7- 总训练位: §f%.0f", finalBonuses.getOrDefault("training_slots", 0.0)));
+                lore.add(String.format("§7- 总训练加成: §f+%.1f%%", finalBonuses.getOrDefault("training_bonus", 0.0) * 100));
+                lore.add(String.format("§7- 总训练速度: §f-%.1f%%", finalBonuses.getOrDefault("training_speed", 0.0) * 100));
+                lore.add(String.format("§7- 总战斗力: §f+%.1f", finalBonuses.getOrDefault("strength", 0.0)));
+                lore.add(String.format("§7- 总防御力: §f+%.1f", finalBonuses.getOrDefault("defense", 0.0)));
+            }
+            case MARKET -> {
+                lore.add(String.format("§7- 总交易折扣: §f%.1f%%", finalBonuses.getOrDefault("trade_discount", 0.0) * 100));
+                lore.add(String.format("§7- 总收入加成: §f+%.1f%%", finalBonuses.getOrDefault("income_bonus", 0.0) * 100));
+            }
+            case WAREHOUSE -> {
+                lore.add(String.format("§7- 总存储容量: §f%.0f", finalBonuses.getOrDefault("storage_size", 0.0)));
+            }
+            case FARM -> {
+                lore.add(String.format("§7- 总食物产量: §f%.0f/h", finalBonuses.getOrDefault("food_production", 0.0)));
+            }
+        }
+        
+        // 显示效率加成
+        double efficiency = building.getTotalEfficiencyBonus() * 100 - 100;
+        if (efficiency > 0) {
+            lore.add("");
+            lore.add(String.format("§e效率加成: §f+%.1f%%", efficiency));
+        }
+        
         lore.add("");
         lore.add("§7工人:");
         building.getType().getWorkerSlots().forEach((type, count) -> 
@@ -228,7 +327,7 @@ public class BuildingDetailGUI extends BaseGUI {
         
         // 显示确认界面
         new ConfirmGUI(plugin, player,
-            "确认升级",
+            "确��升级",
             "升级建筑",
             new String[]{
                 "§7升级到 " + nextLevel + " 级需要:",

@@ -79,7 +79,7 @@ public class DatabaseManager {
         }
     }
     
-    private void createTables() {
+    public void createTables() {
         try (Connection conn = getConnection()) {
             // 创建服务器表
             conn.createStatement().execute("""
@@ -178,7 +178,7 @@ public class DatabaseManager {
                 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
             """.formatted(tablePrefix, tablePrefix));
 
-            // 创建建筑资源消耗记录表
+            // 创建建筑资��消耗记录表
             conn.createStatement().execute("""
                 CREATE TABLE IF NOT EXISTS %sbuilding_resources (
                     id BIGINT PRIMARY KEY AUTO_INCREMENT,
@@ -211,7 +211,7 @@ public class DatabaseManager {
                         rest_position_y DOUBLE,
                         rest_position_z DOUBLE,
                         rest_position_world VARCHAR(64),
-                        state VARCHAR(32) NOT NULL DEFAULT 'IDLE',
+                        state VARCHAR(32) NOT NULL DEFAULT 'WORKING',
                         FOREIGN KEY (building_id) REFERENCES %sbuildings(id) ON DELETE CASCADE
                     )
                 """.formatted(tablePrefix, tablePrefix));
@@ -259,6 +259,80 @@ public class DatabaseManager {
                 """.formatted(tablePrefix, tablePrefix));
             }
 
+            // 创建士兵表
+            conn.createStatement().execute("""
+                CREATE TABLE IF NOT EXISTS %ssoldiers (
+                    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                    uuid VARCHAR(36) NOT NULL,
+                    type VARCHAR(32) NOT NULL,
+                    barracks_id BIGINT NOT NULL,
+                    name VARCHAR(64) NOT NULL,
+                    level INT NOT NULL DEFAULT 1,
+                    experience INT NOT NULL DEFAULT 0,
+                    training_end_time BIGINT DEFAULT NULL,
+                    training_barracks_id BIGINT DEFAULT NULL,
+                    FOREIGN KEY (barracks_id) REFERENCES %sbuildings(id) ON DELETE CASCADE,
+                    FOREIGN KEY (training_barracks_id) REFERENCES %sbuildings(id) ON DELETE SET NULL
+                ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+            """.formatted(tablePrefix, tablePrefix, tablePrefix));
+            
+            // 士兵统计数据表
+            conn.createStatement().execute("""
+                CREATE TABLE IF NOT EXISTS %ssoldier_stats (
+                    soldier_id BIGINT PRIMARY KEY,
+                    kills INT NOT NULL DEFAULT 0,
+                    deaths INT NOT NULL DEFAULT 0,
+                    battles_won INT NOT NULL DEFAULT 0,
+                    battles_lost INT NOT NULL DEFAULT 0,
+                    damage_dealt DOUBLE NOT NULL DEFAULT 0,
+                    damage_taken DOUBLE NOT NULL DEFAULT 0,
+                    FOREIGN KEY (soldier_id) REFERENCES %ssoldiers(id) ON DELETE CASCADE
+                ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+            """.formatted(tablePrefix, tablePrefix));
+            
+            // 士兵训练记录表
+            conn.createStatement().execute("""
+                CREATE TABLE IF NOT EXISTS %ssoldier_training (
+                    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                    soldier_id BIGINT NOT NULL,
+                    start_time BIGINT NOT NULL,
+                    end_time BIGINT NOT NULL,
+                    training_type VARCHAR(32) NOT NULL,
+                    exp_gained INT NOT NULL DEFAULT 0,
+                    FOREIGN KEY (soldier_id) REFERENCES %ssoldiers(id) ON DELETE CASCADE
+                ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+            """.formatted(tablePrefix, tablePrefix));
+            
+            // 战斗记录表
+            conn.createStatement().execute("""
+                CREATE TABLE IF NOT EXISTS %sbattles (
+                    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                    attacker_nation_id BIGINT NOT NULL,
+                    defender_nation_id BIGINT NOT NULL,
+                    battle_time BIGINT NOT NULL,
+                    winner_nation_id BIGINT NOT NULL,
+                    attack_power DOUBLE NOT NULL,
+                    defense_power DOUBLE NOT NULL,
+                    FOREIGN KEY (attacker_nation_id) REFERENCES %snations(id) ON DELETE CASCADE,
+                    FOREIGN KEY (defender_nation_id) REFERENCES %snations(id) ON DELETE CASCADE
+                ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+            """.formatted(tablePrefix, tablePrefix, tablePrefix));
+            
+            // 战斗参与记录表
+            conn.createStatement().execute("""
+                CREATE TABLE IF NOT EXISTS %sbattle_participants (
+                    battle_id BIGINT NOT NULL,
+                    soldier_id BIGINT NOT NULL,
+                    is_attacker BOOLEAN NOT NULL,
+                    survived BOOLEAN NOT NULL,
+                    damage_dealt DOUBLE NOT NULL DEFAULT 0,
+                    damage_taken DOUBLE NOT NULL DEFAULT 0,
+                    PRIMARY KEY (battle_id, soldier_id),
+                    FOREIGN KEY (battle_id) REFERENCES %sbattles(id) ON DELETE CASCADE,
+                    FOREIGN KEY (soldier_id) REFERENCES %ssoldiers(id) ON DELETE CASCADE
+                ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+            """.formatted(tablePrefix, tablePrefix, tablePrefix));
+            
         } catch (SQLException e) {
             plugin.getLogger().severe("创建数据表失败: " + e.getMessage());
             e.printStackTrace();

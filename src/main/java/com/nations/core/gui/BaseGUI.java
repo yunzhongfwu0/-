@@ -26,6 +26,7 @@ public abstract class BaseGUI implements InventoryHolder {
     protected final Inventory inventory;
     protected final Map<Integer, Consumer<Player>> leftClickHandlers = new HashMap<>();
     protected final Map<Integer, Consumer<Player>> rightClickHandlers = new HashMap<>();
+    protected ClickType lastClickType;
     
     public BaseGUI(NationsCore plugin, Player player, String title, int rows) {
         this.plugin = plugin;
@@ -82,6 +83,7 @@ public abstract class BaseGUI implements InventoryHolder {
     
     public void handleRightClick(InventoryClickEvent event) {
         int slot = event.getSlot();
+        lastClickType = event.getClick();
         Consumer<Player> handler = rightClickHandlers.get(slot);
         if (handler != null) {
             handler.accept((Player) event.getWhoClicked());

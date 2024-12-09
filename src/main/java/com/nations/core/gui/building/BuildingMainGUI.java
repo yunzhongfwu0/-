@@ -13,6 +13,7 @@ import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class BuildingMainGUI extends BaseGUI {
@@ -53,31 +54,64 @@ public class BuildingMainGUI extends BaseGUI {
     
     private ItemStack createBuildingItem(Building building) {
         List<String> lore = new ArrayList<>();
-        lore.add("§7类型: §f" + building.getType().getDisplayName());
         lore.add("§7等级: §f" + building.getLevel());
         lore.add("");
-        lore.add("§7加成效果:");
-        building.getBonuses().forEach((key, value) -> 
-            lore.add("§7- " + formatBonus(key, value)));
-        lore.add("");
-        lore.add("§e点击管理建筑");
+        lore.add("§7建筑加成:");
         
-        return createItem(getBuildingMaterial(building.getType()),
+        Map<String, Double> bonuses = building.getBonuses();
+        switch (building.getType()) {
+            case TOWN_HALL -> {
+                double taxRate = bonuses.getOrDefault("tax_rate", 0.0) * 100;
+                double maxMembers = bonuses.getOrDefault("max_members", 0.0);
+                lore.add(String.format("§7- 税率: §f+%.1f%%", taxRate));
+                lore.add(String.format("§7- 人口上限: §f+%.0f", maxMembers));
+            }
+            case BARRACKS -> {
+                double slots = bonuses.getOrDefault("training_slots", 0.0);
+                double bonus = bonuses.getOrDefault("training_bonus", 0.0) * 100;
+                double speed = bonuses.getOrDefault("training_speed", 0.0) * 100;
+                lore.add(String.format("§7- 训练位数量: §f%.0f", slots));
+                lore.add(String.format("§7- 训练加成: §f+%.1f%%", bonus));
+                lore.add(String.format("§7- 训练速度: §f-%.1f%%", speed));
+            }
+            case MARKET -> {
+                double discount = bonuses.getOrDefault("trade_discount", 0.0) * 100;
+                double income = bonuses.getOrDefault("income_bonus", 0.0) * 100;
+                lore.add(String.format("§7- 交易折扣: §f%.1f%%", discount));
+                lore.add(String.format("§7- 收入加成: §f+%.1f%%", income));
+            }
+            case WAREHOUSE -> {
+                double storage = bonuses.getOrDefault("storage_size", 0.0);
+                lore.add(String.format("§7- 存储容量: §f%.0f", storage));
+            }
+            case FARM -> {
+                double production = bonuses.getOrDefault("food_production", 0.0);
+                lore.add(String.format("§7- 食物产量: §f%.0f/小时", production));
+            }
+        }
+
+        // 显示效率加成
+        double efficiency = building.getTotalEfficiencyBonus() * 100 - 100;
+        if (efficiency > 0) {
+            lore.add("");
+            lore.add(String.format("§e效率加成: §f+%.1f%%", efficiency));
+        }
+
+        // 显示工人信息
+        lore.add("");
+        lore.add("§7工人:");
+        building.getType().getWorkerSlots().forEach((type, count) -> {
+            int current = (int) plugin.getNPCManager().getBuildingWorkers(building).stream()
+                .filter(npc -> npc.getType() == type)
+                .count();
+            lore.add(String.format("§7- %s: §f%d/%d", type.getDisplayName(), current, count));
+        });
+
+        lore.add("");
+        lore.add("§e点击查看详情");
+        
+        return createItem(building.getType().getIcon(),
             "§6" + building.getType().getDisplayName(),
             lore.toArray(new String[0]));
-    }
-    
-    private String formatBonus(String key, Double value) {
-        return switch (key) {
-            case "tax_rate" -> String.format("税收加成: +%.1f%%", value * 100);
-            case "max_members" -> String.format("成员上限: +%.0f", value);
-            case "strength" -> String.format("战斗力: +%.1f", value);
-            case "defense" -> String.format("防御力: +%.1f", value);
-            case "trade_discount" -> String.format("交易折扣: %.1f%%", value * 100);
-            case "income_bonus" -> String.format("收入加成: +%.1f%%", value * 100);
-            case "storage_size" -> String.format("存储空间: +%.0f", value);
-            case "food_production" -> String.format("食物产量: +%.1f/h", value);
-            default -> key + ": " + value;
-        };
     }
 } 

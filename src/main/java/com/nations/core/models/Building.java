@@ -164,6 +164,21 @@ public class Building {
     }
 
     public Map<String, Double> getBonuses() {
+        Map<String, Double> bonuses = new HashMap<>();
+        
+        // 获取基础加成和等级加成
+        Map<String, Double> baseBonuses = type.getBaseBonus();
+        Map<String, Double> levelBonuses = type.getLevelBonus();
+        bonuses.putAll(baseBonuses);
+                levelBonuses.forEach((key, value) -> 
+                    bonuses.merge(key, value * (level - 1), Double::sum)
+                );
+        // 应用效率加成
+        double efficiency = getTotalEfficiencyBonus();
+        if (efficiency != 1.0) {
+            bonuses.replaceAll((key, value) -> value * efficiency);
+        }
+        
         return bonuses;
     }
 
@@ -171,15 +186,23 @@ public class Building {
         return size;
     }
 
-    public void setLevel(int level) { this.level = level; }
-    public long getNationId() { return nation.getId(); }
+    public void setLevel(int level) {
+        this.level = level;
+        updateBonuses();  // 等级变化时更新加成
+    }
+
+    public long getNationId() {
+        return nation.getId();
+    }
 
     public void addEfficiencyBonus(String source, double bonus) {
         efficiencyBonuses.put(source, bonus);
+        updateBonuses();  // 效率加成变化时更新
     }
 
     public void removeEfficiencyBonus(String source) {
         efficiencyBonuses.remove(source);
+        updateBonuses();  // 效率加成移除时更新
     }
 
     public double getTotalEfficiencyBonus() {
@@ -196,16 +219,10 @@ public class Building {
         this.cropType = cropType;
     }
 
-    public String getCropTypeDisplayName() {
-        if (cropType == null) return "无";
-        switch (cropType) {
-            case "WHEAT": return "小麦";
-            case "CARROT": return "胡萝卜";
-            case "POTATO": return "马铃薯";
-            case "BEETROOT": return "甜菜根";
-            case "PUMPKIN": return "南瓜";
-            case "MELON": return "西瓜";
-            default: return cropType;
+    public void updateBonuses() {
+        if (NationsCore.getInstance().getBuildingManager() == null) {
+            return;
         }
+        this.bonuses = getBonuses();
     }
 } 

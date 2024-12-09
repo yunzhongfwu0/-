@@ -93,8 +93,32 @@ public class NationNPC {
     }
 
     public void rest() {
-        this.energy = Math.min(100, this.energy + 10);
-        this.happiness = Math.min(100, this.happiness + 5);
+        // 获取当前世界时间
+        long time = getCitizensNPC().getEntity().getWorld().getTime();
+        
+        // 基础恢复量
+        int energyRecovery = 5;  // 基础体力恢复
+        int happinessRecovery = 1;  // 基础心情恢复
+        
+        // 如果是夜晚(12000-24000)，恢复速度翻倍
+        if (time >= 12000 && time <= 24000) {
+            energyRecovery *= 2;
+            happinessRecovery *= 2;
+        }
+        
+        // 更新属性
+        this.energy = Math.min(100, this.energy + energyRecovery);
+        this.happiness = Math.min(100, this.happiness + happinessRecovery);
+        
+        // 记录日志
+        if ((this.energy / 10) > ((this.energy - energyRecovery) / 10)) {
+            NationsCore.getInstance().getLogger().info(
+                String.format("NPC %s 正在休息 (体力: %d%%, 心情: %d%%)", 
+                    getCitizensNPC().getName(), 
+                    this.energy,
+                    this.happiness)
+            );
+        }
     }
 
     public boolean canWork() {
@@ -163,7 +187,7 @@ public class NationNPC {
 
     /**
      * 获取指定技能的数据
-     * @param skill 要获取的技能
+     * @param skill 要获取��技能
      * @return 技能数据，如果技能未解锁或不存在则返回null
      */
     public NPCSkillData getSkillData(NPCSkill skill) {
@@ -184,5 +208,9 @@ public class NationNPC {
 
     public void removeSalaryModifier(String source) {
         salaryModifiers.remove(source);
+    }
+
+    public Building getBuilding() {
+        return workplace;
     }
 }

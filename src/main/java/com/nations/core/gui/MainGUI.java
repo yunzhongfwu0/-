@@ -32,7 +32,7 @@ public class MainGUI extends BaseGUI {
             setItem(11, createItem(Material.EMERALD,
                 MessageUtil.title("创建国家"),
                 MessageUtil.createLore("创建说明",
-                    "点击创建一个新的国家",
+                    "点击创建一个新国家",
                     "",
                     "要求:",
                     "- 需要满足创建条件",
@@ -192,6 +192,17 @@ public class MainGUI extends BaseGUI {
                 },
                 cancelPlayer -> new MainGUI(plugin, cancelPlayer).open()
             ));
+        }
+        
+        // 添加士兵管理按钮
+        if (nation.hasPermission(player.getUniqueId(), "nation.soldier")) {
+            setItem(32, createItem(Material.IRON_SWORD,
+                "§6士兵管理",
+                "§7管理你的士兵",
+                "§7- 招募新士兵",
+                "§7- 训练士兵",
+                "§7- 查看士兵详情"
+            ), p -> new SoldierManageGUI(plugin, p, nation).open());
         }
     }
 } 

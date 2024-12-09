@@ -11,3 +11,7 @@ commands:
   nadmin:
     description: 国家系统管理命令
     usage: /nadmin help
+  soldier:
+    description: 士兵系统命令
+    usage: /soldier help
+    aliases: [s]

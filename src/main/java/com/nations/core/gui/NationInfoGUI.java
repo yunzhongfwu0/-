@@ -30,7 +30,7 @@ public class NationInfoGUI extends BaseGUI {
         // 等级信息
         setItem(12, createItem(Material.EXPERIENCE_BOTTLE,
             "§6国家等级: §f" + nation.getLevel(),
-            "§7最大成员数: §f" + plugin.getConfig().getInt("nations.levels." + nation.getLevel() + ".max-members"),
+            "§7最大成员数: §f" + nation.getMaxMembers(),
             "§7最大领土范围: §f" + nation.getMaxRadius() * 2 + "x" + nation.getMaxRadius() * 2
         ), null);
         

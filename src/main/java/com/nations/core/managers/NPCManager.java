@@ -2,6 +2,8 @@ package com.nations.core.managers;
 
 import com.nations.core.NationsCore;
 import com.nations.core.models.Building;
+import com.nations.core.models.BuildingType;
+import com.nations.core.models.Nation;
 import com.nations.core.models.NationNPC;
 import com.nations.core.models.Transaction.TransactionType;
 import com.nations.core.models.NPCType;
@@ -48,7 +50,7 @@ public class NPCManager {
     private final Map<Long, NationNPC> npcs = new HashMap<>();
     private final Map<Long, Set<NationNPC>> buildingNPCs = new HashMap<>();
     private boolean loaded = false;
-    private final Map<Long, Long> lastWorkCheckTime = new HashMap<>();  // 记录���次检查工作的时间
+    private final Map<Long, Long> lastWorkCheckTime = new HashMap<>();  // 记录次检查工作的时间
     private static final long WORK_CHECK_INTERVAL = 30 * 20L;  // 30秒 * 20ticks
     private final Map<NPCType, NPCBehavior> behaviors = new HashMap<>();
     private final Map<Long, Long> lastUpdateTime = new HashMap<>();
@@ -94,7 +96,7 @@ public class NPCManager {
                         building.getNation().getName())
                 );
 
-                // 创建NPC记��
+                // 创建NPC记
                 PreparedStatement stmt = conn.prepareStatement(
                     "INSERT INTO " + plugin.getDatabaseManager().getTablePrefix() + 
                     "npcs (building_id, type, citizens_id) VALUES (?, ?, ?)",
@@ -124,7 +126,10 @@ public class NPCManager {
                     // 生成 NPC 实体
                     spawnNPC(npc);
                     
-                    conn.commit(); // 提��事务
+                    // 设置NPC外观和装备
+                    setupNPCAppearance(npc.getCitizensNPC(), npc.getType());
+                    
+                    conn.commit(); // 提交事务
                     return npc;
                 }
             } catch (SQLException e) {
@@ -158,7 +163,7 @@ public class NPCManager {
             );
             
             stmt.setLong(1, npc.getId());
-            stmt.setInt(2, 0); // 放在第一个槽��
+            stmt.setInt(2, 0); // 放在第一个槽
             stmt.setString(3, Material.WHEAT_SEEDS.name());
             stmt.setInt(4, 64);
             stmt.executeUpdate();
@@ -171,22 +176,38 @@ public class NPCManager {
         switch (type) {
             case FARMER:
                 equipment.set(Equipment.EquipmentSlot.HAND, new ItemStack(Material.IRON_HOE));
+                equipment.set(Equipment.EquipmentSlot.CHESTPLATE, new ItemStack(Material.LEATHER_CHESTPLATE));
                 break;
             case GUARD:
-                equipment.set(Equipment.EquipmentSlot.HAND, new ItemStack(Material.SHIELD));
-                equipment.set(Equipment.EquipmentSlot.CHESTPLATE, new ItemStack(Material.CHAINMAIL_CHESTPLATE));
+                equipment.set(Equipment.EquipmentSlot.HAND, new ItemStack(Material.IRON_SWORD));
+                equipment.set(Equipment.EquipmentSlot.OFF_HAND, new ItemStack(Material.SHIELD));
+                equipment.set(Equipment.EquipmentSlot.HELMET, new ItemStack(Material.IRON_HELMET));
+                equipment.set(Equipment.EquipmentSlot.CHESTPLATE, new ItemStack(Material.IRON_CHESTPLATE));
+                equipment.set(Equipment.EquipmentSlot.LEGGINGS, new ItemStack(Material.IRON_LEGGINGS));
+                equipment.set(Equipment.EquipmentSlot.BOOTS, new ItemStack(Material.IRON_BOOTS));
                 break;
             case TRADER:
                 equipment.set(Equipment.EquipmentSlot.CHESTPLATE, new ItemStack(Material.LEATHER_CHESTPLATE));
+                equipment.set(Equipment.EquipmentSlot.HAND, new ItemStack(Material.EMERALD));
                 break;
             case MANAGER:
                 equipment.set(Equipment.EquipmentSlot.HELMET, new ItemStack(Material.GOLDEN_HELMET));
+                equipment.set(Equipment.EquipmentSlot.CHESTPLATE, new ItemStack(Material.GOLDEN_CHESTPLATE));
+                equipment.set(Equipment.EquipmentSlot.HAND, new ItemStack(Material.BOOK));
                 break;
             case WAREHOUSE_KEEPER:
                 equipment.set(Equipment.EquipmentSlot.CHESTPLATE, new ItemStack(Material.LEATHER_CHESTPLATE));
                 equipment.set(Equipment.EquipmentSlot.HAND, new ItemStack(Material.CHEST));
                 break;
         }
+        
+        // 设置NPC外观特性
+        if (!citizensNPC.hasTrait(LookClose.class)) {
+            citizensNPC.addTrait(LookClose.class);
+        }
+        LookClose lookClose = citizensNPC.getTrait(LookClose.class);
+        lookClose.setRange(5);           // 设置视野范围
+        lookClose.setRealisticLooking(true);
     }
     
     private void spawnNPC(NationNPC npc) {
@@ -224,6 +245,11 @@ public class NPCManager {
                     boolean success = npc.getCitizensNPC().spawn(spawnLoc);
                     if (success) {
                         plugin.getLogger().info("NPC 生成成功");
+                        // 调用对应行为的onSpawn方法
+                        NPCBehavior behavior = behaviors.get(npc.getType());
+                        if (behavior != null) {
+                            behavior.onSpawn(npc);
+                        }
                     } else {
                         plugin.getLogger().warning("NPC 生成失败");
                     }
@@ -255,7 +281,7 @@ public class NPCManager {
         Block above = block.getRelative(0, 1, 0);
         Block below = block.getRelative(0, -1, 0);
         
-        // 如果脚下是空气，向下寻找地面
+        // 如果脚下是空气，向上寻找地面
         if (below.getType().isAir()) {
             for (int y = 0; y > -5; y--) {
                 Block check = block.getRelative(0, y, 0);
@@ -472,91 +498,115 @@ public class NPCManager {
                 saveAllNPCInventories();
             }
         }.runTaskTimer(plugin, 6000L, 6000L); // 每5分钟保存一次
-        
     }
     
     private void updateNPCState(NationNPC npc) {
+       
+        
         try {
             if (!npc.getCitizensNPC().isSpawned()) {
                 return;
             }
-
-            // 获取当前时间
+            // 如果是守卫NPC,跳过这个方法的控制
+            if (npc.getType() == NPCType.GUARD) {
+                return;
+            }
+            // 获取当前时间和位置
             long time = npc.getCitizensNPC().getEntity().getWorld().getTime();
             boolean isWorkTime = time >= 0 && time < 12000; // 白天是工作时间
+            Location npcLoc = npc.getCitizensNPC().getEntity().getLocation();
+            Location buildingLoc = npc.getWorkplace().getBaseLocation();
+            
+            // 检查是否在建筑范围内
+            double distance = npcLoc.distance(buildingLoc);
+            int buildingRadius = npc.getWorkplace().getType().getBaseSize() / 2;
+            boolean isInBuilding = distance <= buildingRadius;
 
             // 获取当前体力
             int energy = npc.getEnergy();
             
+            
+
+            // 首先处理状态转换
+            if (!isWorkTime || energy < 10) {  // 晚上或体力不足时休息
+                if (npc.getState() != WorkState.RESTING) {
+                    npc.setState(WorkState.RESTING);
+                }
+            } else if(isWorkTime && npc.getState() == WorkState.RESTING && energy >80){
+                // 否则进入工作状态
+                npc.setState(WorkState.WORKING);
+            }
             // 更新头顶显示
             updateHologram(npc, energy);
 
-            // 如果不工作时间，强制进入休息状态
-            if (!isWorkTime && npc.getState() != WorkState.RESTING) {
-                npc.setState(WorkState.RESTING);
-                plugin.getLogger().info(String.format(
-                    "%s %s 下班休息了",
-                    npc.getType().getDisplayName(),
-                    npc.getCitizensNPC().getName()
-                ));
-            }
-            // 如果是工作时间，执行工作逻辑
-            if (isWorkTime) {
-                NPCBehavior behavior = behaviors.get(npc.getType());
-                if (behavior != null) {
-                    behavior.performWork(npc);
-                }
-            }
-
-            // 处理休息状态的移动
+            // 处理休息状态
             if (npc.getState() == WorkState.RESTING) {
-                Location npcLoc = npc.getCitizensNPC().getEntity().getLocation();
-                Location buildingLoc = npc.getWorkplace().getBaseLocation();
-                
-                // 检查是否在建筑范围内
-                double distance = npcLoc.distance(buildingLoc);
-                int buildingRadius = npc.getWorkplace().getType().getBaseSize() / 2;
-                
-                if (distance > buildingRadius) {
-                    // 如果不在建筑范围内，移动回建筑区域
-                    npc.getCitizensNPC().getNavigator().setTarget(buildingLoc);
-                } else if (!npc.getCitizensNPC().getNavigator().isNavigating()) {
-                    // 在建筑范围内且没有在移动，随机选择新的目标点
-                    Location randomLoc = getRandomLocationInBuilding(buildingLoc, buildingRadius);
-                    if (randomLoc != null) {
-                        npc.getCitizensNPC().getNavigator().setTarget(randomLoc);
+                // 如果不在建筑内，强制返回建筑
+                if (!isInBuilding) {
+                    // 强制返回建筑
+                    Location safeLocation = getSafeLocationInBuilding(buildingLoc, buildingRadius/2);
+                    npc.getCitizensNPC().teleport(safeLocation, TeleportCause.PLUGIN);
+                    plugin.getLogger().info(String.format(
+                        "%s %s 休息时返回建筑",
+                        npc.getType().getDisplayName(),
+                        npc.getCitizensNPC().getName()
+                    ));
+                } else {
+                    // 在建筑范围内时恢复体力和心情
+                    if (energy < 100) {
+                        npc.rest();
                     }
                 }
                 return;
             }
 
-            
-
+            // 工作状态下的行为
+            if (npc.getState() == WorkState.WORKING) {
+                if (!isInBuilding) {
+                    // 非守卫NPC必须在建筑范围内工作
+                    Location safeLocation = getSafeLocationInBuilding(buildingLoc, buildingRadius/2);
+                    npc.getCitizensNPC().teleport(safeLocation, TeleportCause.PLUGIN);
+                    plugin.getLogger().info(String.format(
+                        "%s %s 超出范围，已传送回建筑",
+                        npc.getType().getDisplayName(),
+                        npc.getCitizensNPC().getName()
+                    ));
+                    return;
+                }
+                // 执行工作行为
+                NPCBehavior behavior = behaviors.get(npc.getType());
+                if (behavior != null) {
+                    // 更新朝向 - 每秒都尝试看向最近的玩家
+                    if (!npc.getCitizensNPC().getNavigator().isNavigating()) {
+                        behavior.lookAtNearestPlayer(npc, 10.0);
+                    }
+                    behavior.performWork(npc);
+                }
+            }
         } catch (Exception e) {
             plugin.getLogger().severe("更新NPC状态时发生错误: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
-    private Location getRandomLocationInBuilding(Location center, int radius) {
-        if (center == null || center.getWorld() == null) return null;
-        
-        // 随机生成建筑范围内的一个点
+    private Location getSafeLocationInBuilding(Location center, int radius) {
+        World world = center.getWorld();
         double angle = Math.random() * 2 * Math.PI;
-        double distance = Math.random() * radius;
+        double distance = Math.random() * radius; // 使用一半的建筑半径，确保NPC不会太靠近边缘
         double x = center.getX() + distance * Math.cos(angle);
         double z = center.getZ() + distance * Math.sin(angle);
         
-        // 创建新的位置
-        Location randomLoc = center.clone();
-        randomLoc.setX(x);
-        randomLoc.setZ(z);
+        // 找到安全的地面位置
+        Location loc = new Location(world, x, center.getY(), z);
+        loc.setY(world.getHighestBlockYAt((int)x, (int)z) + 1);
         
-        // 找到地面
-        int y = center.getWorld().getHighestBlockYAt((int)x, (int)z);
-        randomLoc.setY(y + 1);
+        // 确保位置是安全的
+        while (!loc.getBlock().getType().isAir() || 
+               !loc.clone().add(0, 1, 0).getBlock().getType().isAir()) {
+            loc.add(0, 1, 0);
+        }
         
-        return randomLoc;
+        return loc;
     }
       
     private void paySalaries() {
@@ -612,6 +662,11 @@ public class NPCManager {
         try (Connection conn = plugin.getDatabaseManager().getConnection()) {
             conn.setAutoCommit(false);
             try {
+                // 调用对应行为的onDespawn方法
+                NPCBehavior behavior = behaviors.get(worker.getType());
+                if (behavior != null) {
+                    behavior.onDespawn(worker);
+                }
                 // 删除背包数据
                 PreparedStatement invStmt = conn.prepareStatement(
                     "DELETE FROM " + plugin.getDatabaseManager().getTablePrefix() + 
@@ -681,7 +736,7 @@ public class NPCManager {
         return npcs.values();
     }
 
-    private void updateHologram(NationNPC npc, int energy) {
+    public static void updateHologram(NationNPC npc, int energy) {
         HologramTrait hologram = npc.getCitizensNPC().getOrAddTrait(HologramTrait.class);
         
         // 清除现有的行
@@ -701,7 +756,7 @@ public class NPCManager {
         ));
     }
 
-    private String getEnergyColor(int energy) {
+    private static String getEnergyColor(int energy) {
         if (energy > 80) return "§a";
         if (energy > 50) return "§e";
         if (energy > 20) return "§6";
@@ -966,5 +1021,24 @@ public class NPCManager {
                 plugin.getLogger().info("已更新NPC " + npc.getCitizensNPC().getName() + " 的行为");
             }
         }
+    }
+
+    public void dismissAllWorkers(Building building) {
+        // 获取并解雇该建筑的所有工人
+        getBuildingWorkers(building).forEach(this::dismissWorker);
+    }
+
+    public void clearNationNPCs(Nation nation) {
+        // 清除该国家的所有NPC
+        getNPCsByNation(nation).forEach(this::dismissWorker);
+    }
+
+    // 添加这个辅助方法
+    private List<NationNPC> getNPCsByNation(Nation nation) {
+        return buildingNPCs.entrySet().stream()
+            .filter(entry -> entry.getValue().stream()
+                .anyMatch(npc -> npc.getBuilding().getNation().equals(nation)))
+            .flatMap(entry -> entry.getValue().stream())
+            .collect(Collectors.toList());
     }
 }

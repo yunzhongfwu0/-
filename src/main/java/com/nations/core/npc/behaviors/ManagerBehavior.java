@@ -3,105 +3,68 @@ package com.nations.core.npc.behaviors;
 import com.nations.core.NationsCore;
 import com.nations.core.models.*;
 import com.nations.core.npc.NPCBehavior;
-
 import net.citizensnpcs.api.npc.NPC;
 import net.citizensnpcs.api.trait.trait.Equipment;
-
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-
 import java.util.List;
 import java.util.Random;
-
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
-public class ManagerBehavior implements NPCBehavior {
+public class ManagerBehavior extends AbstractNPCBehavior {
     private static final Random random = new Random();
-    private static final int TAX_COLLECTION_INTERVAL = 720000; // 1小时
-    private static final int MEMBER_CHECK_INTERVAL = 120000; // 10分钟
-    private static final int MOVE_INTERVAL = 100; // 5秒
-    private static final double INTERACTION_DISTANCE = 2.0;
-    private static final int WORK_DURATION = 12000; // 60秒工作时间
-    private static final int REST_DURATION = 4000; // 20秒休息时间
+    private static final int TAX_COLLECTION_INTERVAL = 20*60*60; // 1小时
+    private static final int MEMBER_CHECK_INTERVAL = 20*60*10; // 10分钟
     
-    private int stateTimer = 0;
     private BukkitTask taxCollectionTask;
     private BukkitTask memberCheckTask;
-    private BukkitTask moveTask;
     private BukkitTask dailyTask;
 
     @Override
     public void performWork(NationNPC npc) {
         if (!isValidForWork(npc)) {
-            NationsCore.getInstance().getLogger().info("管理员NPC无效，跳过工作");
+            return;
+        }
+        lookAtNearestPlayer(npc, 10.0);
+
+        // 检查工作状态
+        if (npc.getState() != WorkState.WORKING) {
             return;
         }
 
-        // 检查体力
-        if (npc.getEnergy() <= 0) {
-            NationsCore.getInstance().getLogger().info("管理员NPC体力不足，进入休息状态");
-            enterRestState(npc);
-            handleMovement(npc, true);
-            return;
-        }
+        // 确保在建筑范围内工作
+        Location npcLoc = npc.getCitizensNPC().getEntity().getLocation();
+        Location buildingLoc = npc.getWorkplace().getBaseLocation();
+        double distance = npcLoc.distance(buildingLoc);
+        int buildingRadius = npc.getWorkplace().getType().getBaseSize() / 2;
 
-        // 如果当前是休息状态且体力未满，继续休息
-        if (npc.getState() == WorkState.RESTING && npc.getEnergy() < 100) {
-            NationsCore.getInstance().getLogger().info("管理员NPC正在休息，体力: " + npc.getEnergy());
-            enterRestState(npc);
-            handleMovement(npc, true);
-            return;
-        }
-
-        // 获取工作地点和国家
-        Building workplace = npc.getWorkplace();
-        if (workplace == null) {
-            NationsCore.getInstance().getLogger().warning("管理员NPC没有工作地点");
-            return;
-        }
-        Nation nation = workplace.getNation();
-
-        // 确保NPC在建筑范围内
-        Location currentLoc = npc.getCitizensNPC().getEntity().getLocation();
-        Location buildingCenter = workplace.getBaseLocation();
-        if (buildingCenter == null || !currentLoc.getWorld().equals(buildingCenter.getWorld())) {
-            return;
-        }
-
-        double distance = currentLoc.distance(buildingCenter);
-        int buildingRadius = workplace.getType().getBaseSize();
-
-        // 如果不在建筑范围内，传送回建筑中心
+        // 如果不在建筑范围内，返回建筑中心
         if (distance > buildingRadius) {
-            Location safeLocation = findSafeLocation(buildingCenter);
-            if (safeLocation != null) {
-                npc.getCitizensNPC().teleport(safeLocation, org.bukkit.event.player.PlayerTeleportEvent.TeleportCause.PLUGIN);
-                NationsCore.getInstance().getLogger().info("管理员已传送回建筑范围内");
-            }
             return;
         }
 
         // 执行管理工作
-        if (npc.getState() != WorkState.WORKING) {
-            NationsCore.getInstance().getLogger().info("管理员NPC进入工作状态");
-            enterWorkState(npc);
-            startTasks(npc, nation);
+        Nation nation = npc.getWorkplace().getNation();
+        if (nation != null) {
+            // 应用管理效率加成
+            double efficiencyBonus = 0.1 * npc.getLevel(); // 每级增加10%效率
+            npc.getWorkplace().addEfficiencyBonus("management", efficiencyBonus);
         }
-
-        // 在工作状态下随机移动
-        if (npc.getState() == WorkState.WORKING) {
-            handleMovement(npc, false);
-        }
+        startTasks(npc, nation);
+        
     }
 
     private void startTasks(NationNPC npc, Nation nation) {
-        // 取消旧的任务
-        stopTasks();
+        
+
+        if (isTasksRunning()) {
+            return; 
+        }
         
         // 收税任务 (每小时)
         taxCollectionTask = new BukkitRunnable() {
@@ -111,8 +74,15 @@ public class ManagerBehavior implements NPCBehavior {
                     cancel();
                     return;
                 }
-                NationsCore.getInstance().getLogger().info("管理员NPC开始收税");
-                collectTaxes(npc, nation);
+                // 获取当前时间
+                long time = npc.getCitizensNPC().getEntity().getWorld().getTime();
+                boolean isWorkTime = time >= 0 && time < 12000; // 白天是工作时间
+                if (isWorkTime) {
+                    NationsCore.getInstance().getLogger().info("管理员NPC开始收税");
+                    collectTaxes(npc, nation);
+                    // 消耗体力
+                    npc.setEnergy(Math.max(0, npc.getEnergy() - 30));
+                }
             }
         }.runTaskTimer(NationsCore.getInstance(), TAX_COLLECTION_INTERVAL, TAX_COLLECTION_INTERVAL);
 
@@ -124,8 +94,14 @@ public class ManagerBehavior implements NPCBehavior {
                     cancel();
                     return;
                 }
-                NationsCore.getInstance().getLogger().info("管理员NPC开始检查成员");
-                checkMembers(npc, nation);
+                long time = npc.getCitizensNPC().getEntity().getWorld().getTime();
+                boolean isWorkTime = time >= 0 && time < 12000; // 白天是工作时间
+                if (isWorkTime) {
+                    NationsCore.getInstance().getLogger().info("管理员NPC开始检查成员");
+                    checkMembers(npc, nation);
+                    // 消耗体力
+                    npc.setEnergy(Math.max(0, npc.getEnergy() - 10));
+                }
             }
         }.runTaskTimer(NationsCore.getInstance(), MEMBER_CHECK_INTERVAL, MEMBER_CHECK_INTERVAL);
 
@@ -137,26 +113,17 @@ public class ManagerBehavior implements NPCBehavior {
                     cancel();
                     return;
                 }
-                NationsCore.getInstance().getLogger().info("管理员NPC处理日常事务");
-                handleDailyTasks(npc, nation);
-                
+                long time = npc.getCitizensNPC().getEntity().getWorld().getTime();
+                boolean isWorkTime = time >= 0 && time < 12000; // 白天是工作时间
+                if (isWorkTime) {
+                    NationsCore.getInstance().getLogger().info("管理员NPC处理日常事务");
+                    handleDailyTasks(npc, nation);
                 // 消耗体力
-                npc.setEnergy(npc.getEnergy() - 1);
+                npc.setEnergy(npc.getEnergy() - 5);
                 NationsCore.getInstance().getLogger().info("管理员NPC完成工作，剩余体力: " + npc.getEnergy());
+                }
             }
         }.runTaskTimer(NationsCore.getInstance(), 200L, 200L);
-
-        // 移动任务 (每5秒)
-        moveTask = new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (!isValidForWork(npc)) {
-                    cancel();
-                    return;
-                }
-                handleMovement(npc, npc.getState() == WorkState.RESTING);
-            }
-        }.runTaskTimer(NationsCore.getInstance(), MOVE_INTERVAL, MOVE_INTERVAL);
     }
 
     private void stopTasks() {
@@ -172,99 +139,12 @@ public class ManagerBehavior implements NPCBehavior {
             dailyTask.cancel();
             dailyTask = null;
         }
-        if (moveTask != null) {
-            moveTask.cancel();
-            moveTask = null;
-        }
     }
-
-    private Location findSafeLocation(Location target) {
-        if (target == null || target.getWorld() == null) return null;
-        
-        Location safe = target.clone();
-        
-        // 找到地面
-        while (safe.getBlock().getType().isAir() && safe.getY() > 0) {
-            safe.subtract(0, 1, 0);
+    private boolean isTasksRunning() {
+        if (taxCollectionTask != null || memberCheckTask != null || dailyTask != null ) {
+            return true;
         }
-        
-        // 确保脚下是实心方块
-        if (!safe.getBlock().getType().isSolid()) {
-            return null;
-        }
-        
-        // 确保头部有空间
-        safe.add(0, 1, 0);
-        if (!safe.getBlock().getType().isAir()) {
-            return null;
-        }
-        
-        return safe;
-    }
-
-    private Location getRandomLocationInBuilding(Location center, int radius) {
-        if (center == null || center.getWorld() == null) return null;
-        
-        // 生成随机角度和距离
-        double angle = Math.random() * 2 * Math.PI;
-        double distance = Math.random() * radius;
-        
-        // 计算随机位置的X和Z坐标
-        double x = center.getX() + distance * Math.cos(angle);
-        double z = center.getZ() + distance * Math.sin(angle);
-        
-        // 创建新位置，保持Y坐标不变
-        return new Location(center.getWorld(), x, center.getY(), z);
-    }
-
-    private void handleMovement(NationNPC npc, boolean isResting) {
-        if (!npc.getCitizensNPC().isSpawned()) return;
-        
-        stateTimer++;
-        
-        // 状态切换检查
-        if (isResting && stateTimer >= REST_DURATION) {
-            stateTimer = 0;
-            npc.setState(WorkState.WORKING);
-            return;
-        } else if (!isResting && stateTimer >= WORK_DURATION) {
-            stateTimer = 0;
-            npc.setState(WorkState.RESTING);
-            return;
-        }
-
-        // 检查位置
-        Building workplace = npc.getWorkplace();
-        if (workplace == null) return;
-        
-        Location currentLoc = npc.getCitizensNPC().getEntity().getLocation();
-        Location buildingCenter = workplace.getBaseLocation();
-        
-        if (buildingCenter == null || !currentLoc.getWorld().equals(buildingCenter.getWorld())) {
-            return;
-        }
-        
-        double distance = currentLoc.distance(buildingCenter);
-        int buildingRadius = workplace.getType().getBaseSize();
-        
-        // 如果不在建筑范围内，直接传送回建筑中心
-        if (distance > buildingRadius) {
-            Location safeLocation = findSafeLocation(buildingCenter);
-            if (safeLocation != null) {
-                npc.getCitizensNPC().teleport(safeLocation, org.bukkit.event.player.PlayerTeleportEvent.TeleportCause.PLUGIN);
-                NationsCore.getInstance().getLogger().info("管理员已传送回建筑范围内");
-            }
-            return;
-        }
-        
-        // 在建筑范围内，有30%概率随机走动
-        if (Math.random() < 0.3) {
-            Location randomLoc = findSafeLocation(getRandomLocationInBuilding(buildingCenter, buildingRadius / 2));
-            if (randomLoc != null) {
-                // 直接传送到随机位置，不使用导航
-                npc.getCitizensNPC().teleport(randomLoc, org.bukkit.event.player.PlayerTeleportEvent.TeleportCause.PLUGIN);
-            }
-        }
+        return false;
     }
 
     private void collectTaxes(NationNPC npc, Nation nation) {
@@ -414,6 +294,8 @@ public class ManagerBehavior implements NPCBehavior {
         if (npc.getEnergy() < 100) {
             npc.setEnergy(Math.min(100, npc.getEnergy() + 5));
         }
+        // 取消旧的任务
+        stopTasks();
     }
 
     @Override

@@ -1,10 +1,15 @@
 package com.nations.core.managers;
 
 import com.nations.core.NationsCore;
+import com.nations.core.models.Building;
+import com.nations.core.models.BuildingFunction;
 import com.nations.core.models.Nation;
 import com.nations.core.models.NationRank;
+import com.nations.core.models.Soldier;
 import com.nations.core.models.Territory;
 import com.nations.core.models.Transaction;
+import com.nations.core.utils.BuildingBorderUtil;
+import com.nations.core.utils.HologramUtil;
 import com.nations.core.utils.MessageUtil;
 
 import net.kyori.adventure.text.Component;
@@ -182,53 +187,118 @@ public class NationManager {
         try (Connection conn = plugin.getDatabaseManager().getConnection()) {
             conn.setAutoCommit(false);
             try {
-                // 1. 清除加入申请
-                clearJoinRequests(nation);
-                
-                // 2. 删除所有成员记录
-                PreparedStatement memberStmt = conn.prepareStatement(
-                    "DELETE FROM " + plugin.getDatabaseManager().getTablePrefix() + 
-                    "nation_members WHERE nation_id = ?"
-                );
-                memberStmt.setLong(1, nation.getId());
-                memberStmt.executeUpdate();
-
-                // 3. 删除领土记录
-                PreparedStatement territoryStmt = conn.prepareStatement(
-                    "DELETE FROM " + plugin.getDatabaseManager().getTablePrefix() + 
-                    "territories WHERE nation_id = ?"
-                );
-                territoryStmt.setLong(1, nation.getId());
-                territoryStmt.executeUpdate();
-
-                // 4. 除国家记录
-                PreparedStatement nationStmt = conn.prepareStatement(
-                    "DELETE FROM " + plugin.getDatabaseManager().getTablePrefix() + 
-                    "nations WHERE id = ?"
-                );
-                nationStmt.setLong(1, nation.getId());
-
-                if (nationStmt.executeUpdate() > 0) {
-                    // 清除领土标记
-                    if (nation.getTerritory() != null) {
-                        nation.getTerritory().clearBorder(plugin.getServer().getWorld(nation.getTerritory().getWorldName()));
+                // 1. 清理所有建筑相关数据
+                for (Building building : new ArrayList<>(nation.getBuildings())) {
+                    // 清理建筑特定功能
+                    switch (building.getType()) {
+                        case BARRACKS -> {
+                            // 清除训练状态
+                            plugin.getSoldierManager().clearTrainingByBarracks(building);
+                            // 删除所有士兵
+                            for (Soldier soldier : plugin.getSoldierManager().getSoldiersByBarracks(building)) {
+                                plugin.getSoldierManager().dismissSoldier(soldier);
+                            }
+                        }
+                        case MARKET -> {
+                            // 取消所有交易
+                            plugin.getTradeManager().cancelTradesByBuilding(building);
+                        }
+                        case WAREHOUSE -> {
+                            // 清空仓库物品
+                            plugin.getStorageManager().clearStorage(building);
+                        }
+                        case FARM -> {
+                            // 停止农场生产
+                            BuildingFunction function = plugin.getBuildingManager().getBuildingFunction(building);
+                            if (function != null) {
+                                function.stopProduction();
+                            }
+                        }
                     }
                     
-                    // 从缓存中移除
-                    nationsByName.remove(nation.getName().toLowerCase());
-                    nationsByOwner.remove(nation.getOwnerUUID());
+                    // 删除建筑全息文字
+                    HologramUtil.removeHologram(building);
                     
-                    // 清理所有成员的映射关系
-                    nation.getMembers().keySet().forEach(playerNations::remove);
-                    // 清理国主的映射关系
-                    playerNations.remove(nation.getOwnerUUID());
+                    // 解雇所有工人
+                    plugin.getNPCManager().dismissAllWorkers(building);
                     
-                    conn.commit();
-                    return true;
+                    // 取消建筑更新任务
+                    plugin.getBuildingManager().cancelUpdateTask(building);
+                    
+                    // 清除建筑边界显示
+                    BuildingBorderUtil.removeBuildingBorder(building);
                 }
 
-                conn.rollback();
-                return false;
+                // 2. 删除数据库中的所有相关数据
+                String prefix = plugin.getDatabaseManager().getTablePrefix();
+                PreparedStatement stmt;  // 声明变量
+                
+                // 删除建筑资源消耗记录
+                stmt = conn.prepareStatement("DELETE FROM " + prefix + "building_resources WHERE building_id IN " +
+                    "(SELECT id FROM " + prefix + "buildings WHERE nation_id = ?)");
+                stmt.setLong(1, nation.getId());
+                stmt.executeUpdate();
+                
+                // 删除建筑升级记录
+                stmt = conn.prepareStatement("DELETE FROM " + prefix + "building_upgrades WHERE building_id IN " +
+                    "(SELECT id FROM " + prefix + "buildings WHERE nation_id = ?)");
+                stmt.setLong(1, nation.getId());
+                stmt.executeUpdate();
+                
+                // 删除NPC背包
+                stmt = conn.prepareStatement("DELETE FROM " + prefix + "npc_inventories WHERE npc_id IN " +
+                    "(SELECT id FROM " + prefix + "npcs WHERE nation_id = ?)");
+                stmt.setLong(1, nation.getId());
+                stmt.executeUpdate();
+                
+                // 删除NPC
+                stmt = conn.prepareStatement("DELETE FROM " + prefix + "npcs WHERE nation_id = ?");
+                stmt.setLong(1, nation.getId());
+                stmt.executeUpdate();
+                
+                // 删除士兵训练记录
+                stmt = conn.prepareStatement("DELETE FROM " + prefix + "soldier_training WHERE soldier_id IN " +
+                    "(SELECT id FROM " + prefix + "soldiers WHERE barracks_id IN " +
+                    "(SELECT id FROM " + prefix + "buildings WHERE nation_id = ?))");
+                stmt.setLong(1, nation.getId());
+                stmt.executeUpdate();
+                
+                // 删除士兵统计数据
+                stmt = conn.prepareStatement("DELETE FROM " + prefix + "soldier_stats WHERE soldier_id IN " +
+                    "(SELECT id FROM " + prefix + "soldiers WHERE barracks_id IN " +
+                    "(SELECT id FROM " + prefix + "buildings WHERE nation_id = ?))");
+                stmt.setLong(1, nation.getId());
+                stmt.executeUpdate();
+                
+                // 删除士兵
+                stmt = conn.prepareStatement("DELETE FROM " + prefix + "soldiers WHERE barracks_id IN " +
+                    "(SELECT id FROM " + prefix + "buildings WHERE nation_id = ?)");
+                stmt.setLong(1, nation.getId());
+                stmt.executeUpdate();
+                
+                // 删除建筑
+                stmt = conn.prepareStatement("DELETE FROM " + prefix + "buildings WHERE nation_id = ?");
+                stmt.setLong(1, nation.getId());
+                stmt.executeUpdate();
+                
+                // 删除交易记录
+                stmt = conn.prepareStatement("DELETE FROM " + prefix + "transactions WHERE nation_id = ?");
+                stmt.setLong(1, nation.getId());
+                stmt.executeUpdate();
+                
+                // 删除国家
+                stmt = conn.prepareStatement("DELETE FROM " + prefix + "nations WHERE id = ?");
+                stmt.setLong(1, nation.getId());
+                stmt.executeUpdate();
+
+                // 3. 清理缓存
+                plugin.getBuildingManager().clearNationBuildings(nation);
+                plugin.getNPCManager().clearNationNPCs(nation);
+                plugin.getSoldierManager().clearNationSoldiers(nation);
+                nationsByName.remove(nation.getName().toLowerCase());
+
+                conn.commit();
+                return true;
             } catch (SQLException e) {
                 conn.rollback();
                 throw e;
@@ -236,10 +306,10 @@ public class NationManager {
                 conn.setAutoCommit(true);
             }
         } catch (SQLException e) {
-            plugin.getLogger().warning("删除国家失败: " + e.getMessage());
+            plugin.getLogger().severe("删除国家失败: " + e.getMessage());
             e.printStackTrace();
+            return false;
         }
-        return false;
     }
     
     public boolean renameNation(Nation nation, String newName, double cost) {
@@ -342,7 +412,7 @@ public class NationManager {
     }
     
     public Optional<Nation> getNationByPlayer(Player player) {
-        // 先检查是否是国家所有者
+        // 先检查是否���国家所有者
         Optional<Nation> ownerNation = nationsByOwner.values().stream()
             .filter(nation -> nation.getOwnerUUID().equals(player.getUniqueId()))
             .findFirst();
@@ -628,7 +698,7 @@ public class NationManager {
                 return false;
             }
         } catch (SQLException e) {
-            plugin.getLogger().warning("检查国家名称时发生错误: " + e.getMessage());
+            plugin.getLogger().warning("检���国家名称时发生错误: " + e.getMessage());
             return false;
         }
         
@@ -862,7 +932,7 @@ public class NationManager {
 
     public boolean withdraw(Nation nation, Player player, double amount) {
         if (!nation.hasPermission(player.getUniqueId(), "nation.withdraw")) {
-            player.sendMessage(MessageUtil.error("你没有从国库取款的权限！"));
+            player.sendMessage(MessageUtil.error("你没有从国��取款的权限！"));
             return false;
         }
 

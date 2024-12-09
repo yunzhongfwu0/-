@@ -7,4 +7,5 @@ public interface NPCBehavior {
     void onSpawn(NationNPC npc);
     void onDespawn(NationNPC npc);
     void setupEquipment(NationNPC npc);
+    void lookAtNearestPlayer(NationNPC npc, double range);
 } 

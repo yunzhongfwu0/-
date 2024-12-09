@@ -34,7 +34,7 @@ public class JoinNationGUI extends BaseGUI {
             List<String> lore = new ArrayList<>();
             lore.addAll(MessageUtil.createStatusLore("国家信息",
                 "等级: " + nation.getLevel(),
-                "成员: " + nation.getMembers().size(),
+                "§7成员: §f" + nation.getCurrentMembers() + "/" + nation.getMaxMembers(),
                 "领袖: " + plugin.getServer().getOfflinePlayer(nation.getOwnerUUID()).getName()
             ));
             

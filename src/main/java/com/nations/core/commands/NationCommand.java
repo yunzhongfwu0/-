@@ -16,9 +16,16 @@ import org.bukkit.entity.Player;
 import org.bukkit.Location;
 import org.jetbrains.annotations.NotNull;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.Material;
+import org.bukkit.Bukkit;
 
 import java.util.Optional;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 
 public class NationCommand implements CommandExecutor {
     
@@ -91,14 +98,14 @@ public class NationCommand implements CommandExecutor {
         }
 
         if (plugin.getNationManager().getNationByPlayer(target).isPresent()) {
-            player.sendMessage(MessageUtil.error("该玩家已经有国家了！"));
+            player.sendMessage(MessageUtil.error("该���家已经有国家了！"));
             return;
         }
 
         // 添加邀请
         nation.get().addInvite(target.getUniqueId());
 
-        // 发送带点击事件的邀请消��
+        // 发送带点击事件的邀请消
         target.sendMessage(Component.text("§6========== 国家邀请 =========="));
         target.sendMessage(Component.text("§e" + player.getName() + " 邀请你加入国家 " + nation.get().getName()));
         target.sendMessage(Component.text("§a[点击接受]")
@@ -148,7 +155,7 @@ public class NationCommand implements CommandExecutor {
                 }
             }
             
-            // 额外通知国主(如果不在线或不在成员列表中)
+            // ���外通知国主(如果不在线或不在成员列表中)
             Player owner = plugin.getServer().getPlayer(nation.get().getOwnerUUID());
             if (owner != null && !owner.getUniqueId().equals(player.getUniqueId()) 
                 && !nation.get().getMembers().containsKey(owner.getUniqueId())) {
@@ -156,7 +163,7 @@ public class NationCommand implements CommandExecutor {
             }
             
         } else {
-            player.sendMessage(MessageUtil.error("加入国家失败！"));
+            player.sendMessage(MessageUtil.error("加入国家失败！该称能已被使用，或与其他国家领土重叠。"));
         }
     }
 
@@ -181,7 +188,7 @@ public class NationCommand implements CommandExecutor {
 
     private void showHelp(Player player) {
         player.sendMessage("§6========== 国家系统帮助 ==========");
-        player.sendMessage("§e基础命令:");
+        player.sendMessage("§e基础命:");
         player.sendMessage("§e/nation §f- 打开国家系统GUI");
         player.sendMessage("§e/nation create <名称> §f- 创建一个新国家");
         player.sendMessage("§e/nation info [玩家名] §f- 查看国家信息");
@@ -201,7 +208,7 @@ public class NationCommand implements CommandExecutor {
         player.sendMessage("§e/nation spawn [国家名] §f- 传送到国家传送点");
         
         player.sendMessage("§e经济管理:");
-        player.sendMessage("§e/nation deposit <金额> §f- 向国库存入金钱");
+        player.sendMessage("§e/nation deposit <金额> §f- ���国库存入金钱");
         player.sendMessage("§e/nation withdraw <金额> §f- 从国库取出金钱");
         
         player.sendMessage("§e升级管理:");
@@ -256,7 +263,7 @@ public class NationCommand implements CommandExecutor {
             // 自动显示领土边界
             plugin.getServer().dispatchCommand(player, "nation showborder");
         } else {
-            player.sendMessage(MessageUtil.error("创建国家失败！该名称能已被使用，或与其他国家领土重叠。"));
+            player.sendMessage(MessageUtil.error("创建国家失败！该称能已被使用，或与其他国家领土重叠。"));
         }
     }
 
@@ -490,7 +497,7 @@ public class NationCommand implements CommandExecutor {
         
         Optional<Nation> nation = plugin.getNationManager().getNationByPlayer(player);
         if (nation.isEmpty()) {
-            player.sendMessage("§c你没有国家！");
+            player.sendMessage("§c你���有国家！");
             return;
         }
         
@@ -646,5 +653,31 @@ public class NationCommand implements CommandExecutor {
         
         // 打开升级GUI
         new UpgradeGUI(plugin, player, nation.get()).open();
+    }
+
+    private void openMainMenu(Player player) {
+        Inventory inv = Bukkit.createInventory(null, 54, "§6国家管理");
+        
+        // ... 其他菜单项 ...
+        
+        // 添加士兵管理按钮
+        if (hasPermission(player, "nations.soldier")) {
+            ItemStack soldierItem = new ItemStack(Material.IRON_SWORD);
+            ItemMeta meta = soldierItem.getItemMeta();
+            meta.setDisplayName("§6士兵管理");
+            List<String> lore = new ArrayList<>();
+            lore.add("§7管理你的士兵");
+            lore.add("§7点击打开士兵管理界面");
+            meta.setLore(lore);
+            soldierItem.setItemMeta(meta);
+            inv.setItem(32, soldierItem);
+        }
+        
+        player.openInventory(inv);
+    }
+
+    private boolean hasPermission(Player player, String permission) {
+        Optional<Nation> nation = plugin.getNationManager().getNationByPlayer(player);
+        return nation.isPresent() && nation.get().hasPermission(player.getUniqueId(), permission);
     }
 } 

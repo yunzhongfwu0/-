@@ -1,6 +1,7 @@
 package com.nations.core.npc.behaviors;
 
 import com.nations.core.NationsCore;
+import com.nations.core.npc.behaviors.AbstractNPCBehavior;
 import com.nations.core.models.NationNPC;
 import com.nations.core.models.WorkState;
 import com.nations.core.models.Building;
@@ -17,7 +18,7 @@ import net.citizensnpcs.api.npc.NPC;
 import java.util.Map;
 import java.util.Random;
 
-public class FarmerBehavior implements NPCBehavior {
+public class FarmerBehavior extends AbstractNPCBehavior {
     // 基础工作范围
     private static final int BASE_WORK_RADIUS = 3;
     // 交互距离
@@ -41,14 +42,29 @@ public class FarmerBehavior implements NPCBehavior {
             return;
         }
 
-        // 检查体力
+        // 获取当前时间
+        long time = npc.getCitizensNPC().getEntity().getWorld().getTime();
+        boolean isWorkTime = time >= 0 && time < 12000; // 白天是工作时间
+
+        // 检查体力和状态
         if (npc.getEnergy() <= 0) {
-            enterRestState(npc);
+            if (npc.getState() != WorkState.RESTING) {
+                enterRestState(npc);
+            }
             return;
         }
 
-        // 如果当前是休息状态且体力未满，继续休息
-        if (npc.getState() == WorkState.RESTING && npc.getEnergy() < 100) {
+        // 如果在休息状态，检查是否可以恢复工作
+        if (npc.getState() == WorkState.RESTING) {
+            if (npc.getEnergy() >= 100 && isWorkTime) {
+                enterWorkState(npc);
+            } else {
+                return;
+            }
+        }
+
+        // 如果不是工作时间，进入休息状态
+        if (!isWorkTime && npc.getState() != WorkState.RESTING) {
             enterRestState(npc);
             return;
         }
@@ -104,14 +120,9 @@ public class FarmerBehavior implements NPCBehavior {
                 return;
             }
         }
-
-        // 如果没有工作可做，进入休息状态
         if (!hasWork) {
-            if (npc.getState() != WorkState.RESTING) {
-                enterRestState(npc);
-            }
+            enterRestState(npc);
         }
-        
         // 实现农民NPC的技能效果
         work(npc);
     }
@@ -131,7 +142,7 @@ public class FarmerBehavior implements NPCBehavior {
         Building workplace = npc.getWorkplace();
         if (workplace == null) return BASE_WORK_RADIUS;
         
-        // 使用建筑尺寸的一半作为基础工作半径，向上取整以确保完全覆盖
+        // 使用建筑尺寸的一半作为基础工作半�����，向上取整以确保完全覆盖
         int baseRadius = (int) Math.ceil(workplace.getSize() / 2.0);
         
         // 获取高效种植技能效果来增加工作范围
@@ -201,7 +212,7 @@ public class FarmerBehavior implements NPCBehavior {
         Ageable crop = (Ageable) block.getBlockData();
         if (crop.getAge() < crop.getMaximumAge()) return;
 
-        // 获取技能效果
+        // 获���技能效果
         double harvestBonus = NationsCore.getInstance().getNPCSkillManager()
             .getSkillEffectiveness(npc, NPCSkill.HARVEST_MASTER);
         double rareDropChance = NationsCore.getInstance().getNPCSkillManager()
@@ -439,18 +450,7 @@ public class FarmerBehavior implements NPCBehavior {
 
     @Override
     public void onSpawn(NationNPC npc) {
-        // 给予初始种子
-        npc.getInventory().addItem(
-            new ItemStack(Material.WHEAT_SEEDS, 16),
-            new ItemStack(Material.BEETROOT_SEEDS, 16),
-            new ItemStack(Material.POTATO, 16),
-            new ItemStack(Material.CARROT, 16),
-            new ItemStack(Material.PUMPKIN_SEEDS, 8),
-            new ItemStack(Material.MELON_SEEDS, 8)
-        );
-        NationsCore.getInstance().getLogger().info(
-            "给予农民初种子"
-        );
+        setupEquipment(npc);
     }
 
     @Override
@@ -482,19 +482,6 @@ public class FarmerBehavior implements NPCBehavior {
             if (randomLoc != null) {
                 npc.getCitizensNPC().getNavigator().setTarget(randomLoc);
             }
-        }
-        
-        // 恢复体力
-        if (npc.getEnergy() < 100) {
-            npc.setEnergy(Math.min(100, npc.getEnergy() + 5));
-        } else if (npc.getState() == WorkState.RESTING) {
-            // 如果体力已满且处于休息状态，准备恢复工作
-            NationsCore.getInstance().getLogger().info(
-                String.format("NPC %s 休息完毕 (体力: %d%%)，准备寻找工作",
-                    npc.getCitizensNPC().getName(),
-                    npc.getEnergy()
-                )
-            );
         }
     }
 
@@ -543,7 +530,7 @@ public class FarmerBehavior implements NPCBehavior {
             energyEfficiency = Math.max(0.7, energyEfficiency); // 最低消耗70%能量
         }
         
-        // 遍历完整的3D��作空间
+        // 遍历完整的3D工作空间
         int checkedBlocks = 0;
         int foundCrops = 0;
         
@@ -610,7 +597,7 @@ public class FarmerBehavior implements NPCBehavior {
                             ItemStack drops = new ItemStack(cropType, baseDrops + bonusDrops);
                             npc.getInventory().addItem(drops);
                             
-                            // 重置作物生长
+                            // 重置作物长
                             crop.setAge(0);
                             block.setBlockData(crop);
                             

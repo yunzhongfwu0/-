@@ -6,8 +6,10 @@ import org.bukkit.block.Block;
 import org.bukkit.block.Container;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 
 import com.nations.core.NationsCore;
+import com.nations.core.utils.HologramUtil;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,6 +19,7 @@ import java.util.stream.Collectors;
 public class BuildingFunction {
     private final NationsCore plugin;
     private final Building building;
+    private BukkitTask productionTask;
     
     public BuildingFunction(Building building) {
         this.plugin = NationsCore.getInstance();
@@ -37,6 +40,10 @@ public class BuildingFunction {
     }
     
     public int calculateFarmProduction(Building building) {
+        if (plugin.getNPCManager() == null) {
+            NationsCore.getInstance().getLogger().severe("NPCManager is null when calculating farm production!");
+            return 0;
+        }
         // 基础产量
         int baseProduction = 10; // 基础每小时产10个
         
@@ -52,7 +59,7 @@ public class BuildingFunction {
     }
     
     private void runFarmTask() {
-        new BukkitRunnable() {
+        productionTask = new BukkitRunnable() {
             @Override
             public void run() {
                 if (building == null || building.getType() != BuildingType.FARM || !building.isValidBasic()) {
@@ -102,7 +109,7 @@ public class BuildingFunction {
                     ));
                 }
             }
-        }.runTaskTimer(plugin, 0L, 72000L); // 1小时 = 20ticks/s * 60s * 60min = 72000 ticks
+        }.runTaskTimer(plugin, 20L * 60L, 20L * 60L);  // 每分钟执行一次
     }
     
     private void runWarehouseTask() {
@@ -190,5 +197,12 @@ public class BuildingFunction {
         }
         
         return false;
+    }
+    
+    public void stopProduction() {
+        if (productionTask != null) {
+            productionTask.cancel();
+            productionTask = null;
+        }
     }
 }

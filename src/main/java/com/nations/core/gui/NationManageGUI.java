@@ -34,7 +34,7 @@ public class NationManageGUI extends BaseGUI {
                 "§6" + nation.getName(),
                 "§7等级: §f" + nation.getLevel(),
                 "§7余额: §f" + nation.getBalance(),
-                "§7成员: §f" + nation.getMembers().size(),
+                "§7成员: §f" + nation.getCurrentMembers() + "/" + nation.getMaxMembers(),
                 "",
                 "§e左键 §7- 管理国家",
                 "§c右键 §7- 删除国家"

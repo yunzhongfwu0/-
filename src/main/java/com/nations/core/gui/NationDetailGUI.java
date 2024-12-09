@@ -24,7 +24,7 @@ public class NationDetailGUI extends BaseGUI {
             "§6" + nation.getName(),
             "§7等级: §f" + nation.getLevel(),
             "§7余额: §f" + nation.getBalance(),
-            "§7成员: §f" + nation.getMembers().size(),
+            "§7成员: §f" + nation.getCurrentMembers() + "/" + nation.getMaxMembers(),
             "§7创建者: §f" + Bukkit.getOfflinePlayer(nation.getOwnerUUID()).getName()
         ), null);
         

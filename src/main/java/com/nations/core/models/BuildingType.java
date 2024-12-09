@@ -164,7 +164,7 @@ public enum BuildingType {
                     }
                 }
                 
-                // 屋顶
+                // 顶
                 for (int x = -2; x <= 2; x++) {
                     for (int z = -2; z <= 2; z++) {
                         world.getBlockAt(loc.clone().add(x, 4, z)).setType(Material.DARK_OAK_PLANKS);
@@ -354,7 +354,7 @@ public enum BuildingType {
             @Override
             public Map<NPCType, Integer> getWorkerSlots() {
                 Map<NPCType, Integer> slots = new HashMap<>();
-                slots.put(NPCType.WAREHOUSE_KEEPER, 3);  // 3个仓库管理员
+                slots.put(NPCType.WAREHOUSE_KEEPER, 3);  // 3个仓���管理员
                 return slots;
             }
 
@@ -450,7 +450,7 @@ public enum BuildingType {
             @Override
             public Map<Integer, String> getWorkSchedule() {
                 Map<Integer, String> schedule = new HashMap<>();
-                schedule.put(0, "开始工作");    // 日出时开始工作
+                schedule.put(0, "开始作");    // 日出时开始工作
                 schedule.put(12000, "休息");    // 日落时休息
                 return schedule;
             }
@@ -467,5 +467,57 @@ public enum BuildingType {
                 return locations;
             }
         });
+    }
+
+    public Map<String, Double> getBaseBonus() {
+        return switch (this) {
+            case TOWN_HALL -> Map.of(
+                "tax_rate", 0.05,      // 基础税率5%
+                "max_members", 5.0      // 基础人口上限5人
+            );
+            case BARRACKS -> Map.of(
+                "training_slots", 2.0,  // 基础训练位数量
+                "training_bonus", 0.1,  // 基础训练属性加成 (10%)
+                "training_speed", 0.0,  // 基础训练速度减少 (0%)
+                "strength", 1.0,        // 基础战斗力加成
+                "defense", 0.5         // 基础防御力加成
+            );
+            case MARKET -> Map.of(
+                "trade_discount", 0.02, // 基础交易折扣2%
+                "income_bonus", 0.1     // 基础收入加成10%
+            );
+            case WAREHOUSE -> Map.of(
+                "storage_size", 27.0    // 基础存储容量27格
+            );
+            case FARM -> Map.of(
+                "food_production", 10.0  // 基础食物产量10
+            );
+        };
+    }
+
+    public Map<String, Double> getLevelBonus() {
+        return switch (this) {
+            case TOWN_HALL -> Map.of(
+                "tax_rate", 0.05,      // 每级增加5%税率
+                "max_members", 5.0      // 每级增加5人口上限
+            );
+            case BARRACKS -> Map.of(
+                "training_slots", 1.0,  // 每级+1个训练位
+                "training_bonus", 0.05, // 每级+5%训练加成
+                "training_speed", 0.1,  // 每级减少10%训练时间
+                "strength", 1.0,        // 每级+1战斗力
+                "defense", 0.5          // 每级+0.5防御力
+            );
+            case MARKET -> Map.of(
+                "trade_discount", 0.02, // 每级增加2%交易折扣
+                "income_bonus", 0.1     // 每级增加10%收入加成
+            );
+            case WAREHOUSE -> Map.of(
+                "storage_size", 27.0    // 每级增加27格存储容量
+            );
+            case FARM -> Map.of(
+                "food_production", 10.0  // 每级增加10食物产量
+            );
+        };
     }
 } 
